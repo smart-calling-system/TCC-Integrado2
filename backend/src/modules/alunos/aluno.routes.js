@@ -8,12 +8,14 @@ const ROLES = require('../../constants/roles');
 
 const router = Router();
 
+// Garante que o usuário está logado
 router.use(authenticate);
 
-router.get('/', alunoController.getAll);
-router.get('/:id', alunoController.getById);
-router.get('/:id/frequencia', alunoController.getFrequencia)
-router.get('/:id/frequencia/disciplinas', alunoController.getFrequenciaDisciplinas);;
+// 👇 ROTAS BLINDADAS: Apenas Admin, Secretaria e Professor podem listar e ver dados de alunos
+router.get('/', authorize([ROLES.ADMIN, ROLES.SECRETARIA, ROLES.PROFESSOR]), alunoController.getAll);
+router.get('/:id', authorize([ROLES.ADMIN, ROLES.SECRETARIA, ROLES.PROFESSOR]), alunoController.getById);
+router.get('/:id/frequencia', authorize([ROLES.ADMIN, ROLES.SECRETARIA, ROLES.PROFESSOR]), alunoController.getFrequencia);
+router.get('/:id/frequencia/disciplinas', authorize([ROLES.ADMIN, ROLES.SECRETARIA, ROLES.PROFESSOR]), alunoController.getFrequenciaDisciplinas);
 
 // Aqui entram os validadores do Zod ANTES do controller
 router.post('/', authorize([ROLES.ADMIN, ROLES.SECRETARIA]), validate(createAlunoSchema), alunoController.create);

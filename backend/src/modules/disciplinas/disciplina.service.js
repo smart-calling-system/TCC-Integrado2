@@ -1,14 +1,26 @@
 const disciplinaRepository = require('./disciplina.repository');
+const auditService = require('../auditoria/audit.service'); // Importa o serviço de auditoria
 const AppError = require('../../utils/AppError');
 
 class DisciplinaService {
-  async createDisciplina(data) {
+  async createDisciplina(data, userId = null) {
     const disciplinaExistente = await disciplinaRepository.findByCodigo(data.codigo);
     if (disciplinaExistente) {
       throw new AppError('Já existe uma disciplina cadastrada com este código.', 400);
     }
 
-    return await disciplinaRepository.create(data);
+    const novaDisciplina = await disciplinaRepository.create(data);
+
+    // Registra a auditoria de criação
+    await auditService.registrar({
+      usuarioId: userId,
+      acao: 'CREATE',
+      entidade: 'Disciplina',
+      entidadeId: novaDisciplina.id,
+      dadosNovos: novaDisciplina
+    });
+
+    return novaDisciplina;
   }
 
   async listarDisciplinas() {
@@ -23,8 +35,8 @@ class DisciplinaService {
     return disciplina;
   }
 
-  async atualizarDisciplina(id, data) {
-    await this.buscarDisciplinaPorId(id);
+  async atualizarDisciplina(id, data, userId = null) {
+    const disciplinaAntiga = await this.buscarDisciplinaPorId(id);
 
     if (data.codigo) {
       const disciplinaExistente = await disciplinaRepository.findByCodigo(data.codigo);
@@ -33,12 +45,36 @@ class DisciplinaService {
       }
     }
 
-    return await disciplinaRepository.update(id, data);
+    const disciplinaAtualizada = await disciplinaRepository.update(id, data);
+
+    // Registra a auditoria de atualização
+    await auditService.registrar({
+      usuarioId: userId,
+      acao: 'UPDATE',
+      entidade: 'Disciplina',
+      entidadeId: id,
+      dadosAntigos: disciplinaAntiga,
+      dadosNovos: disciplinaAtualizada
+    });
+
+    return disciplinaAtualizada;
   }
 
-  async deletarDisciplina(id) {
-    await this.buscarDisciplinaPorId(id);
-    return await disciplinaRepository.delete(id);
+  async deletarDisciplina(id, userId = null) {
+    const disciplina = await this.buscarDisciplinaPorId(id);
+    
+    await disciplinaRepository.delete(id);
+
+    // Registra a auditoria de exclusão
+    await auditService.registrar({
+      usuarioId: userId,
+      acao: 'DELETE',
+      entidade: 'Disciplina',
+      entidadeId: id,
+      dadosAntigos: disciplina
+    });
+
+    return { message: 'Disciplina deletada com sucesso.' };
   }
 }
 
