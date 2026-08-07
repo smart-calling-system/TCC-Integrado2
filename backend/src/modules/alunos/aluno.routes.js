@@ -5,6 +5,7 @@ const authorize = require('../../middlewares/authorize');
 const validate = require('../../middlewares/validate');
 const { createAlunoSchema, updateAlunoSchema } = require('../../validators/aluno.validator');
 const ROLES = require('../../constants/roles');
+const upload = require('../../middlewares/upload');
 
 const router = Router();
 
@@ -16,7 +17,7 @@ router.get('/', authorize([ROLES.ADMIN, ROLES.SECRETARIA, ROLES.PROFESSOR]), alu
 router.get('/:id', authorize([ROLES.ADMIN, ROLES.SECRETARIA, ROLES.PROFESSOR]), alunoController.getById);
 router.get('/:id/frequencia', authorize([ROLES.ADMIN, ROLES.SECRETARIA, ROLES.PROFESSOR]), alunoController.getFrequencia);
 router.get('/:id/frequencia/disciplinas', authorize([ROLES.ADMIN, ROLES.SECRETARIA, ROLES.PROFESSOR]), alunoController.getFrequenciaDisciplinas);
-
+router.post('/:id/foto', authorize([ROLES.ADMIN, ROLES.SECRETARIA]), upload.single('foto'), alunoController.uploadFoto);
 // Aqui entram os validadores do Zod ANTES do controller
 router.post('/', authorize([ROLES.ADMIN, ROLES.SECRETARIA]), validate(createAlunoSchema), alunoController.create);
 router.patch('/:id', authorize([ROLES.ADMIN, ROLES.SECRETARIA]), validate(updateAlunoSchema), alunoController.update);

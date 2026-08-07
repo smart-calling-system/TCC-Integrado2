@@ -4,62 +4,107 @@ const prisma = new PrismaClient();
 async function main() {
   console.log('🌱 Iniciando o seed do banco de dados...');
 
-  // 1. Cria a Turma
-  const turma3A = await prisma.turma.create({
-    data: {
-      nome: '3º Ano A - Desenvolvimento',
-      anoLetivo: 2026,
-      turno: 'MANHA',
-      ativo: true,
-    },
+  // ==========================================
+  // 1. CRIANDO A TURMA 3 A
+  // ==========================================
+  console.log('🏫 Verificando a Turma 3 A...');
+  
+  // Busca a turma para não duplicar se você rodar o seed duas vezes
+  let turma3A = await prisma.turma.findFirst({
+    where: { nome: '3 A', anoLetivo: 2026 }
   });
-  console.log(`✅ Turma criada: ${turma3A.nome} (ID: ${turma3A.id})`);
 
-  // 2. Lista de Alunos para inserir
-  const listaAlunos = [
-    {
-      nome: 'Neil Lopes João Filho',
-      matricula: 'SENAI2026001',
-      fotoTreinamento: 'NEILLOPESJOAOFILHO_1.jpg'
-    },
-    {
-      nome: 'Pietro Andrade',
-      matricula: 'SENAI2026002',
-      fotoTreinamento: 'PIETRO_1.jpg'
-    },
-    {
-      nome: 'Ana Clara Souza',
-      matricula: 'SENAI2026003',
-      fotoTreinamento: 'ANA_1.jpg'
-    }
-  ];
-
-  // 3. Insere os alunos e já cria a relação na tabela TurmaAluno
-  for (const alunoData of listaAlunos) {
-    const aluno = await prisma.aluno.create({
+  if (!turma3A) {
+    turma3A = await prisma.turma.create({
       data: {
-        nome: alunoData.nome,
-        matricula: alunoData.matricula,
-        fotoTreinamento: alunoData.fotoTreinamento,
-        ativo: true,
-        // Cria a relação N:M automaticamente
-        turmas: {
-          create: {
-            turmaId: turma3A.id
-          }
-        }
+        nome: '3 A',
+        anoLetivo: 2026,
+        turno: 'MANHA', // Você pode alterar para TARDE ou NOITE se precisar
+        ativo: true
       }
     });
-    console.log(`👤 Aluno criado: ${aluno.nome}`);
-    console.log(`   ID: ${aluno.id}`);
+    console.log('✅ Turma 3 A (2026) criada com sucesso!');
+  } else {
+    console.log('✅ Turma 3 A já existia no banco.');
   }
 
-  console.log('\n🚀 Seed concluído! Atualize o seu mapeamento_alunos.json no Python com os IDs gerados acima.');
+  // ==========================================
+  // 2. CRIANDO E MATRICULANDO OS ALUNOS
+  // ==========================================
+  const alunosNomes = [
+    "ANA BEATRIZ PEREIRA DOS SANTOS",
+    "ANA CLARA DE CARVALHO NASCIMENTO",
+    "ANNA LUIZA GOMES SILVA",
+    "AQUILES LUIZ NUNES BASTOS",
+    "CAINAN BASTOS DA SILVA",
+    "DERICK LUIZ CAETANO MIGUEL",
+    "ESTELLA DE ALMEIDA ROSA",
+    "FRANCISCO GABRIEL DE OLIVEIRA PASSOS",
+    "GLORIA MARIA MOURA BRUNO DE CARVALHO",
+    "HELOISA FRANCISCO DIONISIO",
+    "HENRY GUIMARÃES ALVES",
+    "INGRID RANI FORTUNATO DOS SANTOS",
+    "JOÃO GABRIEL DA SILVA PEREIRA",
+    "JOÃO PEDRO DE AQUINO HONORATO",
+    "JOÃO PEDRO MARTINS LIGABO",
+    "JOÃO PEDRO RODRIGUES DOS SANTOS",
+    "JUAN PEDRO DE MIRANDA",
+    "JULIA DE MOURA LOPES DA SILVA",
+    "MARCOS VINICIUS SORIANO GUATURA",
+    "MARIA EDUARDA FELIX INOCENCIO",
+    "MARIA ISABEL DA SILVA COSTA BORGES",
+    "MARIANA DE SOUZA MARTINS DOS SANTOS",
+    "MARIANA SILVA DE ANDRADE",
+    "MIGUEL ARAUJO DE GODOI FREITAS",
+    "NATHALIA ALVES ABDO REZENDE",
+    "NEIL LOPES JOÃO FILHO",
+    "NICOLAS FELIPE DO NASCIMENTO ROSA",
+    "PIETRO HENRIQUE GOMES DE ANDRADE",
+    "SAMUEL RODRIGUES COSTA FREIRE",
+    "VICTOR HUGO DO CARMO DE JESUS"
+  ];
+
+  console.log(`👨‍🎓 Inserindo e matriculando ${alunosNomes.length} alunos na Turma 3 A...`);
+
+  for (let i = 0; i < alunosNomes.length; i++) {
+    const nome = alunosNomes[i];
+    const numeroChamada = (i + 1).toString().padStart(3, '0');
+    const matriculaGerada = `2026${numeroChamada}`;
+
+    // Passo A: Cria ou Atualiza o Aluno
+    const aluno = await prisma.aluno.upsert({
+      where: { matricula: matriculaGerada },
+      update: { nome: nome },
+      create: {
+        nome: nome,
+        matricula: matriculaGerada,
+        ativo: true
+      }
+    });
+
+    // Passo B: Cria o Vínculo (Matrícula) na tabela TurmaAluno
+    await prisma.turmaAluno.upsert({
+      where: {
+        alunoId_turmaId: {
+          alunoId: aluno.id,
+          turmaId: turma3A.id
+        }
+      },
+      update: { ativo: true },
+      create: {
+        alunoId: aluno.id,
+        turmaId: turma3A.id,
+        ativo: true
+      }
+    });
+  }
+
+  console.log('✅ Todos os alunos foram cadastrados e vinculados à Turma 3 A com sucesso!');
 }
 
 main()
   .catch((e) => {
-    console.error('❌ Erro ao rodar o seed:', e);
+    console.error('🚨 Erro ao rodar o seed:', e);
     process.exit(1);
   })
   .finally(async () => {

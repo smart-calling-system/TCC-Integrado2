@@ -5,7 +5,7 @@ const presencaService = require('../modules/presencas/presenca.service');
 const relatorioService = require('../modules/relatorios/relatorio.service');
 
 const iniciarCronJobs = () => {
-  // Configuração global para garantir o fuso horário de Brasília (resolve alerta do auditor)
+  // Configuração global para garantir o fuso horário de Brasília
   const cronOptions = { timezone: 'America/Sao_Paulo' };
 
   // 1. FALTAS AUTOMÁTICAS: Todo dia útil (Seg-Sex) às 23h00
@@ -24,7 +24,10 @@ const iniciarCronJobs = () => {
       const relatorio = await relatorioService.previsaoCozinha();
       const texto = `Bom dia equipe da Cozinha!\nPrevisão de alunos para hoje:\nManhã: ${relatorio.previsao.MANHA}\nTarde: ${relatorio.previsao.TARDE}\nNoite: ${relatorio.previsao.NOITE}\nTotal: ${relatorio.previsao.TOTAL}`;
       
-      await enviarEmail('cozinha.lorena@sp.senai.br', '🍽️ Previsão de Refeições do Dia', texto);
+      // 👇 Alterado para usar Variável de Ambiente
+      const emailDestino = process.env.EMAIL_COZINHA || 'cozinha@senai.br';
+      await enviarEmail(emailDestino, '🍽️ Previsão de Refeições do Dia', texto);
+      
       logger.info('🤖 [CRON] Relatório da cozinha enviado.');
     } catch (error) {
       logger.error('🚨 [CRON] Erro no relatório da cozinha: ' + error.message);
@@ -37,7 +40,10 @@ const iniciarCronJobs = () => {
       const alunosEmRisco = await relatorioService.listarAlunosBaixaFrequencia(75);
       if (alunosEmRisco.length > 0) {
         const nomes = alunosEmRisco.map(a => `- ${a.nome} (${a.frequencia}%)`).join('\n');
-        await enviarEmail('secretaria.lorena@sp.senai.br', '⚠️ Alerta Semanal: Alunos em Risco de Retenção', `Os seguintes alunos estão com frequência abaixo de 75%:\n\n${nomes}`);
+        
+        // 👇 Alterado para usar Variável de Ambiente
+        const emailDestino = process.env.EMAIL_SECRETARIA || 'secretaria@senai.br';
+        await enviarEmail(emailDestino, '⚠️ Alerta Semanal: Alunos em Risco de Retenção', `Os seguintes alunos estão com frequência abaixo de 75%:\n\n${nomes}`);
       }
       logger.info('🤖 [CRON] Alertas semanais de frequência enviados.');
     } catch (error) {
@@ -50,11 +56,13 @@ const iniciarCronJobs = () => {
     try {
       logger.info('🤖 [CRON] Iniciando Job: Geração de Relatório Mensal Consolidado...');
       
-      // Agora o Cron realmente gera o relatório antes de mandar o e-mail!
       const relatorio = await relatorioService.gerarRelatorioMensal();
       logger.info(`🤖 [CRON] Consolidação do Mês de ${relatorio.mes} gerada com sucesso.`);
 
-      await enviarEmail('diretoria.lorena@sp.senai.br', '📊 Fechamento Mensal de Frequência', 'O relatório consolidado do mês já está disponível no painel administrativo para exportação em PDF/CSV.');
+      // 👇 Alterado para usar Variável de Ambiente
+      const emailDestino = process.env.EMAIL_DIRETORIA || 'diretoria@senai.br';
+      await enviarEmail(emailDestino, '📊 Fechamento Mensal de Frequência', 'O relatório consolidado do mês já está disponível no painel administrativo para exportação em PDF/CSV.');
+      
       logger.info('🤖 [CRON] Aviso de relatório mensal enviado.');
     } catch (error) {
       logger.error('🚨 [CRON] Erro no aviso mensal: ' + error.message);

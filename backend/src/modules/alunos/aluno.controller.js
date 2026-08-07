@@ -12,6 +12,27 @@ class AlunoController {
     }
   }
 
+  // Adicione junto aos outros métodos (create, update, etc)
+  async uploadFoto(req, res, next) {
+    try {
+      const { id } = req.params;
+      
+      if (!req.file) {
+        throw new AppError('Nenhuma imagem enviada na requisição.', 400);
+      }
+
+      const resultado = await alunoService.uploadFotoTreinamento(id, req.file);
+
+      return res.status(200).json({
+        status: 'success',
+        message: 'Foto validada e sincronizada com a IA com sucesso.',
+        data: resultado
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
   async getAll(req, res, next) {
     try {
       const pagina = parseInt(req.query.page, 10) || 1;

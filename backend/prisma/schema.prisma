@@ -98,7 +98,6 @@ model Aluno {
   nome            String
   matricula       String       @unique
   fotoTreinamento String?      @map("foto_treinamento")
-  faceId          String?      @map("face_id")
   ativo           Boolean      @default(true)
   criadoEm        DateTime     @default(now()) @map("criado_em")
   atualizadoEm    DateTime     @updatedAt @map("atualizado_em")
@@ -194,6 +193,8 @@ model Presenca {
   
   // Índices para busca rápida (performance)
   @@index([alunoId, data]) 
+  @@index([turmaId, dataHora]) // 👇 Adicionado para otimizar os relatórios
+  @@index([status])            // 👇 Adicionado para otimizar os relatórios
   @@map("presencas")
 }
 
@@ -211,17 +212,17 @@ model Justificativa {
 }
 
 model IaLog {
-  id          String      @id @default(uuid())
-  alunoId     String?     @map("aluno_id")
-  turmaId     String?     @map("turma_id")
-  faceScore   Float?      @map("face_score")
-  imagemHash  String?     @map("imagem_hash") 
-  resultado   ResultadoIA
-  motivo      String?     
-  criadoEm    DateTime    @default(now()) @map("criado_em")
+  id         String      @id @default(uuid())
+  alunoId    String?     @map("aluno_id")
+  turmaId    String?     @map("turma_id")
+  faceScore  Float?      @map("face_score")
+  imagemHash String?     @map("imagem_hash") 
+  resultado  ResultadoIA
+  motivo     String?     
+  criadoEm   DateTime    @default(now()) @map("criado_em")
 
-  aluno       Aluno?      @relation(fields: [alunoId], references: [id], onDelete: SetNull)
-  turma       Turma?      @relation(fields: [turmaId], references: [id], onDelete: SetNull)
+  aluno      Aluno?      @relation(fields: [alunoId], references: [id], onDelete: SetNull)
+  turma      Turma?      @relation(fields: [turmaId], references: [id], onDelete: SetNull)
 
   // ÍNDICES ADICIONADOS PARA PERFORMANCE
   @@index([alunoId])
@@ -249,7 +250,7 @@ model AuditLog {
   id           String    @id @default(uuid())
   usuarioId    String?   @map("usuario_id") 
   acao         AcaoAudit
-  entidade     String    
+  entidade     String  
   entidadeId   String?   @map("entidade_id") 
   dadosAntigos Json?     @map("dados_antigos") 
   dadosNovos   Json?     @map("dados_novos")  

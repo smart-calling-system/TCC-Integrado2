@@ -3,6 +3,8 @@ const presencaRepository = require('../presencas/presenca.repository');
 const alertaService = require('../alertas/alerta.service'); 
 const auditService = require('../auditoria/audit.service'); 
 const AppError = require('../../utils/AppError');
+const axios = require('axios');
+const FormData = require('form-data');
 const prisma = require('../../database/client'); // <-- Importado para buscar os nomes das disciplinas no relatório
 
 class AlunoService {
@@ -25,6 +27,50 @@ class AlunoService {
     });
 
     return novoAluno;
+  }
+
+  async uploadFotoTreinamento(alunoId, file) {
+    const aluno = await this.buscarAlunoPorId(alunoId);
+
+    // 1. Monta o pacote com a imagem para enviar para o Python
+    const form = new FormData();
+    form.append('file', file.buffer, {
+      filename: file.originalname,
+      contentType: file.mimetype,
+    });
+    // Mandamos o ID do aluno junto para o Python popular o json dele automaticamente!
+    form.append('aluno_id', aluno.id); 
+
+    try {
+      // 2. Dispara a foto para a API de IA do Pietro
+      const response = await axios.post(
+        `${process.env.PYTHON_API_URL}/cadastrar`, 
+        form, 
+        {
+          headers: {
+            ...form.getHeaders(),
+            'x-api-key': process.env.IA_API_KEY
+          },
+          timeout: 15000 // 15 segundos porque processamento de imagem demora mais
+        }
+      );
+
+      // 3. Se a IA aceitou a foto (boa nitidez, etc), atualizamos o banco do Node
+      const alunoAtualizado = await prisma.aluno.update({
+        where: { id: aluno.id },
+        data: { fotoTreinamento: file.originalname }
+      });
+
+      return {
+        aluno: alunoAtualizado,
+        iaResultado: response.data // Retorna a confirmação da IA
+      };
+
+    } catch (error) {
+      // Se a IA rejeitar a foto (borrada, rosto duplo, etc)
+      const erroIa = error.response?.data?.detail || error.message;
+      throw new AppError(`A IA rejeitou o cadastro da foto: ${erroIa}`, 422);
+    }
   }
 
   async listarAlunos(pagina, limite) {

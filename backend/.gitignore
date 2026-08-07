@@ -44,3 +44,6 @@ build/
 
 # Arquivos de ambiente do sistema operacional
 desktop.ini
+
+mapeamento_alunos.json
+exportar_uuids.js
