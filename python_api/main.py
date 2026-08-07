@@ -2,88 +2,213 @@ from fastapi import FastAPI, UploadFile, File, Request, Form
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
+from fastapi.middleware.cors import CORSMiddleware
+
 import face_recognition
 import cv2
 import numpy as np
 import os
 import json
+import logging
 import requests
+from uuid import UUID
 from dotenv import load_dotenv
 
 load_dotenv()
 
-app = FastAPI(title="API de Reconhecimento Facial Profissional")
+# ============================================================
+# CONFIGURAÇÃO GERAL
+# ============================================================
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s | %(levelname)s | %(message)s"
+)
+logger = logging.getLogger("tcc-face")
+
+app = FastAPI(
+    title="API de Reconhecimento Facial - TCC",
+    version="1.1.0"
+)
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 PASTA_STATIC = os.path.join(BASE_DIR, "static")
 PASTA_BANCO = os.path.join(BASE_DIR, "banco_alunos")
-
-# Integração com o backend Node
-NODE_API_URL = os.getenv("NODE_API_URL", "http://localhost:3000")
-IA_API_KEY = os.getenv("IA_API_KEY")
 CAMINHO_MAPEAMENTO = os.path.join(BASE_DIR, "mapeamento_alunos.json")
 
-
-def carregar_mapeamento():
-    if not os.path.exists(CAMINHO_MAPEAMENTO):
-        return {}
-    with open(CAMINHO_MAPEAMENTO, "r", encoding="utf-8") as f:
-        return json.load(f)
-
-
-mapeamento_alunos = carregar_mapeamento()
-
 for pasta in [PASTA_STATIC, PASTA_BANCO]:
-    if not os.path.exists(pasta):
-        os.makedirs(pasta)
+    os.makedirs(pasta, exist_ok=True)
 
 app.mount("/static", StaticFiles(directory=PASTA_STATIC), name="static")
 templates = Jinja2Templates(directory=os.path.join(BASE_DIR, "templates"))
 
+# CORS: útil caso o Miguel rode o Flutter também como Web durante os testes.
+# No APK/mobile o CORS do navegador não se aplica.
+cors_env = os.getenv(
+    "CORS_ORIGINS",
+    "http://localhost:3000,http://localhost:5173,http://localhost:8080"
+)
+origens_cors = [origem.strip() for origem in cors_env.split(",") if origem.strip()]
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origens_cors,
+    allow_credentials=True,
+    allow_methods=["GET", "POST", "OPTIONS"],
+    allow_headers=["*"],
+)
+
+# ============================================================
+# INTEGRAÇÃO COM O BACKEND NODE DO NEIL
+# ============================================================
+
+
+def normalizar_node_api_url(url: str) -> str:
+    """
+    Aceita tanto:
+      http://localhost:3000
+    quanto:
+      http://localhost:3000/api/v1
+
+    e sempre devolve uma base terminando em /api/v1.
+    Isso evita o 404 que existia na integração anterior.
+    """
+    url = (url or "http://localhost:3000").strip().rstrip("/")
+    if not url.endswith("/api/v1"):
+        url = f"{url}/api/v1"
+    return url
+
+
+NODE_API_URL = normalizar_node_api_url(
+    os.getenv("NODE_API_URL", "http://localhost:3000")
+)
+IA_API_KEY = (os.getenv("IA_API_KEY") or "").strip()
+NODE_TIMEOUT_SEGUNDOS = float(os.getenv("NODE_TIMEOUT_SEGUNDOS", "10"))
+
+# O backend do Neil usa 0.85 por padrão. O score abaixo é NORMALIZADO:
+# qualquer rosto que passou pela tolerância local recebe score entre esse mínimo e 1.0.
+NODE_MIN_FACE_SCORE = float(os.getenv("NODE_MIN_FACE_SCORE", "0.85"))
+NODE_MIN_FACE_SCORE = max(0.0, min(1.0, NODE_MIN_FACE_SCORE))
+
+# ============================================================
+# CONFIGURAÇÃO DO RECONHECIMENTO
+# ============================================================
+
 rostos_conhecidos_encodings = []
 rostos_conhecidos_nomes = []
 
-# Quanto menor, mais rigoroso o reconhecimento (menos falsos positivos,
-# porém mais chance de não reconhecer em fotos ruins).
-TOLERANCIA_RECONHECIMENTO = 0.46
+# Quanto menor, mais rigoroso o reconhecimento.
+TOLERANCIA_RECONHECIMENTO = float(os.getenv("FACE_TOLERANCE", "0.46"))
 
-# Diferença mínima aceitável entre a 1ª e a 2ª menor distância.
-# Se for menor que isso, consideramos ambíguo e não reconhecemos ninguém.
-MARGEM_MINIMA_CONFIANCA = 0.05
+# Diferença mínima entre o melhor aluno e o segundo melhor aluno.
+MARGEM_MINIMA_CONFIANCA = float(os.getenv("FACE_MARGIN", "0.05"))
 
-# Quantidade de reamostragens da imagem no cadastro para gerar um encoding
-# mais preciso. Quanto maior, mais lento.
-NUM_JITTERS_CADASTRO = 1
+NUM_JITTERS_CADASTRO = int(os.getenv("FACE_NUM_JITTERS", "1"))
 
 
-# O nome do aluno é usado como identificador do arquivo/cadastro. Alunos com
-# nome completo idêntico vão sobrescrever o cadastro um do outro.
+# ============================================================
+# MAPEAMENTO ALUNO -> UUIDs DO POSTGRES
+# ============================================================
+
+
+def carregar_mapeamento():
+    if not os.path.exists(CAMINHO_MAPEAMENTO):
+        logger.warning("mapeamento_alunos.json não encontrado.")
+        return {}
+
+    try:
+        with open(CAMINHO_MAPEAMENTO, "r", encoding="utf-8") as arquivo:
+            dados = json.load(arquivo)
+            return dados if isinstance(dados, dict) else {}
+    except (json.JSONDecodeError, OSError) as erro:
+        logger.error("Erro ao carregar mapeamento_alunos.json: %s", erro)
+        return {}
+
+
+def uuid_valido(valor) -> bool:
+    try:
+        UUID(str(valor))
+        return True
+    except (ValueError, TypeError, AttributeError):
+        return False
+
+
+def obter_mapeamento_aluno(nome_aluno):
+    # Recarrega a cada reconhecimento para permitir trocar UUIDs sem reiniciar a API.
+    mapeamento = carregar_mapeamento()
+    info = mapeamento.get(nome_aluno)
+
+    if not info:
+        return None, (
+            f"Aluno '{nome_aluno}' foi reconhecido, mas não existe no "
+            "mapeamento_alunos.json."
+        )
+
+    aluno_id = info.get("alunoId")
+    turma_id = info.get("turmaId")
+
+    if not uuid_valido(aluno_id) or not uuid_valido(turma_id):
+        return None, (
+            f"O mapeamento de '{nome_aluno}' ainda possui alunoId/turmaId inválido. "
+            "Substitua pelos UUIDs reais do PostgreSQL do backend."
+        )
+
+    return {"alunoId": aluno_id, "turmaId": turma_id}, None
+
+
+# ============================================================
+# BANCO FACIAL LOCAL
+# ============================================================
 
 
 def carregar_banco_local():
     rostos_conhecidos_encodings.clear()
     rostos_conhecidos_nomes.clear()
-    if not os.listdir(PASTA_BANCO):
+
+    arquivos = os.listdir(PASTA_BANCO)
+    if not arquivos:
+        logger.info("Banco facial local vazio.")
         return
-    print("Carregando banco de rostos, aguarde...")
-    for arquivo in os.listdir(PASTA_BANCO):
-        if arquivo.lower().endswith((".jpg", ".jpeg", ".png")):
-            try:
-                imagem = face_recognition.load_image_file(os.path.join(PASTA_BANCO, arquivo))
-                encodings = face_recognition.face_encodings(imagem, num_jitters=NUM_JITTERS_CADASTRO)
-                if len(encodings) > 0:
-                    nome_base = os.path.splitext(arquivo)[0]
-                    partes = nome_base.rsplit("_", 1)
-                    nome_aluno = partes[0] if len(partes) == 2 else nome_base
-                    rostos_conhecidos_encodings.append(encodings[0])
-                    rostos_conhecidos_nomes.append(nome_aluno)
-                    print(f"  OK: {arquivo} carregado")
-            except Exception as e:
-                print(f"Erro ao ler {arquivo}: {e}")
-    print(f"Banco carregado: {len(rostos_conhecidos_nomes)} fotos.")
+
+    logger.info("Carregando banco facial local...")
+
+    for arquivo in arquivos:
+        if not arquivo.lower().endswith((".jpg", ".jpeg", ".png")):
+            continue
+
+        caminho = os.path.join(PASTA_BANCO, arquivo)
+
+        try:
+            imagem = face_recognition.load_image_file(caminho)
+            encodings = face_recognition.face_encodings(
+                imagem,
+                num_jitters=NUM_JITTERS_CADASTRO
+            )
+
+            if not encodings:
+                logger.warning("Nenhum rosto utilizável em %s", arquivo)
+                continue
+
+            nome_base = os.path.splitext(arquivo)[0]
+            partes = nome_base.rsplit("_", 1)
+            nome_aluno = partes[0] if len(partes) == 2 else nome_base
+
+            rostos_conhecidos_encodings.append(encodings[0])
+            rostos_conhecidos_nomes.append(nome_aluno)
+            logger.info("Face carregada: %s", arquivo)
+
+        except Exception as erro:
+            logger.exception("Erro ao carregar %s: %s", arquivo, erro)
+
+    logger.info("Banco facial carregado: %s fotos.", len(rostos_conhecidos_nomes))
 
 
 carregar_banco_local()
+
+
+# ============================================================
+# ROTAS DE STATUS / INTERFACE LOCAL
+# ============================================================
 
 
 @app.get("/", response_class=HTMLResponse)
@@ -93,32 +218,81 @@ async def interface_teste(request: Request):
 
 @app.get("/health")
 async def health_check():
-    return {"status": "ok", "alunos_carregados": len(rostos_conhecidos_nomes)}
+    mapeamento = carregar_mapeamento()
+    return {
+        "status": "ok",
+        "servico": "python-face-api",
+        "alunos_carregados": len(set(rostos_conhecidos_nomes)),
+        "fotos_carregadas": len(rostos_conhecidos_nomes),
+        "alunos_mapeados": len(mapeamento),
+        "node_api_url": NODE_API_URL,
+        "ia_api_key_configurada": bool(IA_API_KEY),
+    }
+
+
+@app.get("/health/node")
+def health_node():
+    """Teste rápido da ponte Python -> Node sem registrar presença."""
+    url = f"{NODE_API_URL}/ia/health"
+
+    try:
+        resposta = requests.get(url, timeout=NODE_TIMEOUT_SEGUNDOS)
+        try:
+            corpo = resposta.json()
+        except ValueError:
+            corpo = resposta.text[:500]
+
+        return {
+            "status": "ok" if resposta.ok else "erro",
+            "http_status": resposta.status_code,
+            "url": url,
+            "backend": corpo,
+        }
+    except requests.exceptions.Timeout:
+        return {
+            "status": "erro",
+            "url": url,
+            "mensagem": "Timeout ao tentar alcançar o backend Node."
+        }
+    except requests.exceptions.ConnectionError as erro:
+        return {
+            "status": "erro",
+            "url": url,
+            "mensagem": f"Não foi possível conectar ao backend Node: {erro}"
+        }
+
+
+# ============================================================
+# CADASTRO FACIAL
+# ============================================================
 
 
 def limpar_fotos_parciais(nome_aluno):
     try:
         for numero in ["1", "2", "3"]:
-            caminho_arquivo = os.path.join(PASTA_BANCO, f"{nome_aluno}_{numero}.jpg")
-            if os.path.exists(caminho_arquivo):
-                os.remove(caminho_arquivo)
-    except Exception as e:
-        print(f"Erro na limpeza: {e}")
+            caminho = os.path.join(PASTA_BANCO, f"{nome_aluno}_{numero}.jpg")
+            if os.path.exists(caminho):
+                os.remove(caminho)
+    except Exception as erro:
+        logger.warning("Erro ao limpar fotos parciais: %s", erro)
 
 
 def checar_nitidez(imagem_bgr, limite=80.0):
-    """
-    Verifica se a imagem está nítida o suficiente usando a variância do Laplaciano.
-    Quanto menor o valor, mais borrada a imagem está.
-    """
     cinza = cv2.cvtColor(imagem_bgr, cv2.COLOR_BGR2GRAY)
     variancia = cv2.Laplacian(cinza, cv2.CV_64F).var()
     return variancia >= limite
 
 
 @app.post("/cadastrar")
-async def cadastrar_aluno(nome: str = Form(...), numero_foto: str = Form(...), file: UploadFile = File(...)):
-    nome_limpo = " ".join(nome.strip().split())
+async def cadastrar_aluno(
+    nome: str = Form(...),
+    numero_foto: str = Form(...),
+    file: UploadFile = File(...)
+):
+    nome_limpo = " ".join(nome.strip().split()).upper()
+
+    if numero_foto not in {"1", "2", "3"}:
+        return {"status": "erro", "mensagem": "numero_foto deve ser 1, 2 ou 3."}
 
     try:
         conteudo = await file.read()
@@ -131,92 +305,231 @@ async def cadastrar_aluno(nome: str = Form(...), numero_foto: str = Form(...), f
 
         if not checar_nitidez(imagem_bgr):
             limpar_fotos_parciais(nome_limpo)
-            return {"status": "erro", "mensagem": "Imagem muito borrada. Fique parado e tente novamente."}
+            return {
+                "status": "erro",
+                "mensagem": "Imagem muito borrada. Fique parado e tente novamente."
+            }
 
         imagem_rgb = cv2.cvtColor(imagem_bgr, cv2.COLOR_BGR2RGB)
         locais = face_recognition.face_locations(imagem_rgb)
 
         if not locais:
             limpar_fotos_parciais(nome_limpo)
-            return {"status": "erro", "mensagem": "Nenhum rosto detectado! Centralize-se na câmera."}
+            return {
+                "status": "erro",
+                "mensagem": "Nenhum rosto detectado. Centralize-se na câmera."
+            }
 
         if len(locais) > 1:
             limpar_fotos_parciais(nome_limpo)
-            return {"status": "erro", "mensagem": "Mais de um rosto detectado. Cadastre um aluno por vez."}
+            return {
+                "status": "erro",
+                "mensagem": "Mais de um rosto detectado. Cadastre um aluno por vez."
+            }
 
         marcas = face_recognition.face_landmarks(imagem_rgb, locais)
         if marcas:
             pontos = marcas[0]
-            nariz_x = pontos['nose_bridge'][0][0]
-            olho_esq_x = pontos['left_eye'][0][0]
-            olho_dir_x = pontos['right_eye'][0][0]
+            nariz_x = pontos["nose_bridge"][0][0]
+            olho_esq_x = pontos["left_eye"][0][0]
+            olho_dir_x = pontos["right_eye"][0][0]
 
             proporcao = (nariz_x - olho_esq_x) / (olho_dir_x - olho_esq_x + 1e-6)
 
-            if numero_foto == "1":
-                if proporcao < 0.15 or proporcao > 0.85:
-                    limpar_fotos_parciais(nome_limpo)
-                    return {"status": "erro", "mensagem": "Fique mais de frente para a foto 1."}
+            if numero_foto == "1" and (proporcao < 0.15 or proporcao > 0.85):
+                limpar_fotos_parciais(nome_limpo)
+                return {"status": "erro", "mensagem": "Fique mais de frente para a foto 1."}
 
-            elif numero_foto == "2":
-                if proporcao < 0.44:
-                    limpar_fotos_parciais(nome_limpo)
-                    return {"status": "erro", "mensagem": "Gire a cabeça um pouco para a ESQUERDA."}
+            if numero_foto == "2" and proporcao < 0.44:
+                limpar_fotos_parciais(nome_limpo)
+                return {"status": "erro", "mensagem": "Gire a cabeça um pouco para a ESQUERDA."}
 
-            elif numero_foto == "3":
-                if proporcao > 0.56:
-                    limpar_fotos_parciais(nome_limpo)
-                    return {"status": "erro", "mensagem": "Gire a cabeça um pouco para a DIREITA."}
+            if numero_foto == "3" and proporcao > 0.56:
+                limpar_fotos_parciais(nome_limpo)
+                return {"status": "erro", "mensagem": "Gire a cabeça um pouco para a DIREITA."}
 
         nome_arquivo = f"{nome_limpo}_{numero_foto}.jpg"
-        cv2.imwrite(os.path.join(PASTA_BANCO, nome_arquivo), imagem_bgr)
+        caminho_destino = os.path.join(PASTA_BANCO, nome_arquivo)
+
+        if not cv2.imwrite(caminho_destino, imagem_bgr):
+            raise RuntimeError("Não foi possível salvar a imagem no banco facial.")
 
         if numero_foto == "3":
             carregar_banco_local()
 
-        return {"status": "sucesso", "mensagem": f"Foto {numero_foto} salva!"}
+        return {
+            "status": "sucesso",
+            "mensagem": f"Foto {numero_foto} salva!",
+            "aluno": nome_limpo
+        }
 
-    except Exception as e:
+    except Exception as erro:
+        logger.exception("Erro durante cadastro facial: %s", erro)
         limpar_fotos_parciais(nome_limpo)
-        return {"status": "erro", "mensagem": f"Erro no servidor: {str(e)}"}
+        return {"status": "erro", "mensagem": f"Erro no servidor: {erro}"}
+
+
+# ============================================================
+# RECONHECIMENTO FACIAL
+# ============================================================
+
+
+def calcular_face_score(distancia):
+    """
+    O face_recognition fornece DISTÂNCIA, não uma probabilidade de confiança.
+
+    Para o contrato com o backend Node, transformamos a faixa aceita localmente
+    [0, TOLERANCIA_RECONHECIMENTO] em [1.0, NODE_MIN_FACE_SCORE].
+
+    Assim, um rosto que o Python já rejeitaria nunca é enviado ao Node, e um rosto
+    aceito pelo Python chega ao Node com score coerente com o limiar configurado.
+    """
+    if distancia is None:
+        return 0.0
+
+    distancia = max(0.0, float(distancia))
+    qualidade_relativa = 1.0 - min(distancia / TOLERANCIA_RECONHECIMENTO, 1.0)
+    score = NODE_MIN_FACE_SCORE + qualidade_relativa * (1.0 - NODE_MIN_FACE_SCORE)
+    return round(max(0.0, min(1.0, score)), 4)
+
+
+def extrair_mensagem_backend(corpo, fallback):
+    if isinstance(corpo, dict):
+        return (
+            corpo.get("message")
+            or corpo.get("mensagem")
+            or (corpo.get("error") if isinstance(corpo.get("error"), str) else None)
+            or fallback
+        )
+    return fallback
 
 
 def registrar_presenca_no_node(nome_aluno, distancia):
-    """
-    Envia o reconhecimento pro backend Node, que decide se é entrada, saída
-    ou ciclo já concluído, comparando com o que já existe hoje no Postgres
-    para aquele aluno/turma.
-    """
-    info = mapeamento_alunos.get(nome_aluno)
-    if not info:
+    """Envia o reconhecimento validado para o backend Node do Neil."""
+    info, erro_mapeamento = obter_mapeamento_aluno(nome_aluno)
+
+    if erro_mapeamento:
+        logger.error(erro_mapeamento)
         return {
+            "ok": False,
             "status": "erro",
-            "mensagem": f"Aluno '{nome_aluno}' reconhecido, mas sem alunoId/turmaId em mapeamento_alunos.json."
+            "tipo": "MAPEAMENTO_INVALIDO",
+            "mensagem": erro_mapeamento
         }
 
-    face_score = max(0.0, 1 - (distancia / TOLERANCIA_RECONHECIMENTO))
+    if not IA_API_KEY:
+        mensagem = (
+            "IA_API_KEY não está configurada na API Python. "
+            "Use a mesma chave configurada no backend Node."
+        )
+        logger.error(mensagem)
+        return {
+            "ok": False,
+            "status": "erro",
+            "tipo": "CONFIGURACAO",
+            "mensagem": mensagem
+        }
+
+    face_score = calcular_face_score(distancia)
+    url = f"{NODE_API_URL}/ia/registrar-presenca"
+    payload = {
+        "alunoId": info["alunoId"],
+        "turmaId": info["turmaId"],
+        "faceScore": face_score
+    }
+
+    logger.info("Enviando reconhecimento ao Node: aluno=%s score=%.4f url=%s", nome_aluno, face_score, url)
 
     try:
         resposta = requests.post(
-            f"{NODE_API_URL}/ia/registrar-presenca",
-            json={
-                "alunoId": info["alunoId"],
-                "turmaId": info["turmaId"],
-                "faceScore": round(face_score, 2)
+            url,
+            json=payload,
+            headers={
+                "x-api-key": IA_API_KEY,
+                "Accept": "application/json"
             },
-            headers={"x-api-key": IA_API_KEY},
-            timeout=5
+            timeout=NODE_TIMEOUT_SEGUNDOS
         )
-        return resposta.json()
-    except requests.exceptions.RequestException as e:
-        return {"status": "erro", "mensagem": f"Falha ao comunicar com o backend: {str(e)}"}
+
+        try:
+            corpo = resposta.json()
+        except ValueError:
+            corpo = {"message": resposta.text[:1000] or "Resposta não-JSON do backend."}
+
+        logger.info("Resposta Node: HTTP %s | %s", resposta.status_code, corpo)
+
+        if resposta.ok:
+            return {
+                "ok": True,
+                "status": "sucesso",
+                "http_status": resposta.status_code,
+                "faceScore": face_score,
+                "data": corpo
+            }
+
+        mapa_erros = {
+            400: "REQUISICAO_INVALIDA",
+            401: "API_KEY_INVALIDA",
+            403: "SEM_PERMISSAO",
+            404: "ROTA_NAO_ENCONTRADA",
+            409: "CONFLITO",
+            422: "RECONHECIMENTO_REJEITADO",
+            429: "RATE_LIMIT",
+        }
+
+        tipo = mapa_erros.get(resposta.status_code, "ERRO_BACKEND")
+        mensagem = extrair_mensagem_backend(
+            corpo,
+            f"Backend respondeu HTTP {resposta.status_code}."
+        )
+
+        return {
+            "ok": False,
+            "status": "erro",
+            "tipo": tipo,
+            "http_status": resposta.status_code,
+            "faceScore": face_score,
+            "mensagem": mensagem,
+            "data": corpo
+        }
+
+    except requests.exceptions.Timeout:
+        return {
+            "ok": False,
+            "status": "erro",
+            "tipo": "TIMEOUT",
+            "faceScore": face_score,
+            "mensagem": "O backend demorou demais para responder. Tente novamente."
+        }
+
+    except requests.exceptions.ConnectionError as erro:
+        logger.error("Falha de conexão com Node: %s", erro)
+        return {
+            "ok": False,
+            "status": "erro",
+            "tipo": "BACKEND_INDISPONIVEL",
+            "faceScore": face_score,
+            "mensagem": "Não foi possível conectar ao backend Node."
+        }
+
+    except requests.exceptions.RequestException as erro:
+        logger.exception("Erro HTTP ao falar com Node: %s", erro)
+        return {
+            "ok": False,
+            "status": "erro",
+            "tipo": "ERRO_COMUNICACAO",
+            "faceScore": face_score,
+            "mensagem": f"Falha ao comunicar com o backend: {erro}"
+        }
 
 
 def reconhecer_face_no_frame(imagem_bgr):
     """
-    Recebe uma imagem BGR e retorna (nome, distancia) do aluno mais próximo.
-    Retorna (None, None) se não achar rosto, banco vazio, distância acima da
-    tolerância, ou se o resultado for ambíguo (dois ou mais alunos muito parecidos).
+    Retorna (nome, distancia) do melhor aluno.
+
+    Importante: cada aluno possui 3 fotos. Primeiro agrupamos as distâncias por
+    NOME e pegamos a melhor foto de cada aluno. Assim, as fotos 1/2/3 da MESMA
+    pessoa não são tratadas como candidatos concorrentes na margem anti-ambiguidade.
     """
     imagem_menor = cv2.resize(imagem_bgr, (0, 0), fx=0.25, fy=0.25)
     imagem_rgb = cv2.cvtColor(imagem_menor, cv2.COLOR_BGR2RGB)
@@ -224,27 +537,44 @@ def reconhecer_face_no_frame(imagem_bgr):
     locais = face_recognition.face_locations(imagem_rgb)
     encodings = face_recognition.face_encodings(imagem_rgb, locais)
 
-    if not encodings:
+    # Para chamada, também exigimos exatamente um rosto no frame.
+    if len(encodings) != 1:
         return None, None
+
     if not rostos_conhecidos_encodings:
         return None, None
 
-    distancias = face_recognition.face_distance(rostos_conhecidos_encodings, encodings[0])
+    distancias = face_recognition.face_distance(
+        rostos_conhecidos_encodings,
+        encodings[0]
+    )
 
-    candidatos_validos = [
-        (nome, dist) for nome, dist in zip(rostos_conhecidos_nomes, distancias)
-        if dist <= TOLERANCIA_RECONHECIMENTO
-    ]
+    # Melhor distância por ALUNO, e não por FOTO.
+    melhor_por_aluno = {}
+    for nome, distancia in zip(rostos_conhecidos_nomes, distancias):
+        distancia = float(distancia)
+        if distancia > TOLERANCIA_RECONHECIMENTO:
+            continue
 
-    if not candidatos_validos:
+        if nome not in melhor_por_aluno or distancia < melhor_por_aluno[nome]:
+            melhor_por_aluno[nome] = distancia
+
+    if not melhor_por_aluno:
         return None, None
 
-    candidatos_validos.sort(key=lambda item: item[1])
-    melhor_nome, melhor_distancia = candidatos_validos[0]
+    candidatos = sorted(melhor_por_aluno.items(), key=lambda item: item[1])
+    melhor_nome, melhor_distancia = candidatos[0]
 
-    if len(candidatos_validos) > 1:
-        _, segunda_distancia = candidatos_validos[1]
+    if len(candidatos) > 1:
+        segunda_distancia = candidatos[1][1]
         if (segunda_distancia - melhor_distancia) < MARGEM_MINIMA_CONFIANCA:
+            logger.warning(
+                "Reconhecimento ambíguo: %s=%.4f / %s=%.4f",
+                melhor_nome,
+                melhor_distancia,
+                candidatos[1][0],
+                segunda_distancia
+            )
             return None, None
 
     return melhor_nome, melhor_distancia
@@ -252,33 +582,92 @@ def reconhecer_face_no_frame(imagem_bgr):
 
 @app.post("/reconhecer")
 async def reconhecer_rosto(file: UploadFile = File(...)):
-    """
-    Reconhece o rosto e repassa pro Node via registrar_presenca_no_node().
-    Quem decide se é ENTRADA_REGISTRADA, SAIDA_REGISTRADA, SAIDA_ANTECIPADA
-    ou IGNORADO é sempre o backend Node.
-    """
     try:
         conteudo = await file.read()
         nparr = np.frombuffer(conteudo, np.uint8)
         imagem_bgr = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
 
         if imagem_bgr is None:
-            return {"status": "erro", "mensagem": "Erro ao decodificar a imagem."}
+            return {
+                "status": "erro",
+                "reconhecido": False,
+                "presenca_registrada": False,
+                "mensagem": "Erro ao decodificar a imagem."
+            }
 
         nome, distancia = reconhecer_face_no_frame(imagem_bgr)
 
         if nome is None:
             if not rostos_conhecidos_encodings:
-                return {"status": "erro", "mensagem": "Banco de dados vazio."}
-            return {"status": "sucesso", "reconhecido": False, "mensagem": "Rosto desconhecido."}
+                return {
+                    "status": "erro",
+                    "reconhecido": False,
+                    "presenca_registrada": False,
+                    "mensagem": "Banco facial vazio. Cadastre um aluno primeiro."
+                }
+
+            return {
+                "status": "sucesso",
+                "reconhecido": False,
+                "presenca_registrada": False,
+                "mensagem": "Rosto não reconhecido ou reconhecimento ambíguo."
+            }
+
+        logger.info("Rosto reconhecido localmente: %s | distância=%.4f", nome, distancia)
 
         resultado_node = registrar_presenca_no_node(nome, distancia)
+
+        if not resultado_node.get("ok"):
+            return {
+                "status": "erro",
+                "reconhecido": True,
+                "presenca_registrada": False,
+                "aluno": nome,
+                "faceScore": resultado_node.get("faceScore"),
+                "tipo_erro": resultado_node.get("tipo"),
+                "mensagem": resultado_node.get(
+                    "mensagem",
+                    "Rosto reconhecido, mas o backend não confirmou a presença."
+                ),
+                "backend": resultado_node
+            }
+
+        resposta_node = resultado_node.get("data") or {}
+        dados_evento = resposta_node.get("data") if isinstance(resposta_node, dict) else None
+        dados_evento = dados_evento if isinstance(dados_evento, dict) else {}
+        evento = dados_evento.get("status")
+
+        # IGNORADO significa que entrada e saída já foram feitas hoje.
+        registro_novo = evento != "IGNORADO"
+
+        mensagens_evento = {
+            "ENTRADA_REGISTRADA": "Entrada registrada com sucesso.",
+            "SAIDA_REGISTRADA": "Saída registrada com sucesso.",
+            "SAIDA_ANTECIPADA_REGISTRADA": "Saída antecipada registrada.",
+            "IGNORADO": dados_evento.get("mensagem", "O ciclo de presença de hoje já foi concluído.")
+        }
+
         return {
             "status": "sucesso",
             "reconhecido": True,
+            "presenca_registrada": registro_novo,
             "aluno": nome,
-            "backend": resultado_node
+            "faceScore": resultado_node.get("faceScore"),
+            "evento": evento,
+            "mensagem": mensagens_evento.get(
+                evento,
+                resposta_node.get("message", "Reconhecimento processado pelo backend.")
+                if isinstance(resposta_node, dict)
+                else "Reconhecimento processado pelo backend."
+            ),
+            "backend": resposta_node
         }
 
-    except Exception as e:
-        return {"status": "erro", "mensagem": str(e)}
+    except Exception as erro:
+        logger.exception("Erro inesperado no reconhecimento: %s", erro)
+        return {
+            "status": "erro",
+            "reconhecido": False,
+            "presenca_registrada": False,
+            "mensagem": f"Erro no servidor de reconhecimento: {erro}"
+        }

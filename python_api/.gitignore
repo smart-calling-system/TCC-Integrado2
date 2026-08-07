@@ -1,0 +1,22 @@
+# Segredos / ambiente
+.env
+.env.*
+!.env.example
+
+# Biometria local - nunca versionar fotos
+banco_alunos/
+*.jpg
+*.jpeg
+*.png
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# Arquivos locais
+presencas.csv
+.DS_Store
+.vscode/
+.idea/

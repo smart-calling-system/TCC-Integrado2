@@ -1,14 +1,6 @@
 {
-  "NEILLOPESJOAOFILHO": {
-    "alunoId": "bd6b122c-6a27-4af3-b3fc-c27314c6e90e",
-    "turmaId": "64ffc7d5-5dde-41f5-a4fb-c07450dc8484"
-  },
-  "PIETRO": {
-    "alunoId": "b9e7978e-d376-43fa-b305-9069cfd73cb0",
-    "turmaId": "64ffc7d5-5dde-41f5-a4fb-c07450dc8484"
-  },
-  "ANA": {
-    "alunoId": "3231705b-f3b5-4730-bea6-206fd96de83b",
-    "turmaId": "64ffc7d5-5dde-41f5-a4fb-c07450dc8484"
+  "PIETRO ANDRADE": {
+    "alunoId": "COLOQUE-O-UUID-REAL-DO-ALUNO",
+    "turmaId": "COLOQUE-O-UUID-REAL-DA-TURMA"
   }
 }

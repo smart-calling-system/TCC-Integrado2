@@ -1,98 +1,98 @@
-<!DOCTYPE html>
-<html lang="pt-BR">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Presença Escolar Inteligente - IA</title>
-    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <style>
-        @keyframes pulseGlow {
-            0%, 100% { border-color: rgba(99, 102, 241, 0.3); box-shadow: 0 0 15px rgba(99, 102, 241, 0.1); }
-            50% { border-color: rgba(99, 102, 241, 0.6); box-shadow: 0 0 25px rgba(99, 102, 241, 0.25); }
-        }
-        .mask-idle { animation: pulseGlow 3s infinite ease-in-out; }
-    </style>
-</head>
-<body class="bg-slate-950 text-slate-100 min-h-screen flex flex-col items-center justify-center p-4 font-sans antialiased selection:bg-indigo-500/30">
-    
-    <div class="max-w-md w-full bg-slate-900/60 rounded-[32px] shadow-[0_25px_50px_-12px_rgba(0,0,0,0.5)] border border-slate-800/50 p-6 text-center backdrop-blur-2xl relative overflow-hidden">
+    <!DOCTYPE html>
+    <html lang="pt-BR">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Presença Escolar Inteligente - IA</title>
+        <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+        <style>
+            @keyframes pulseGlow {
+                0%, 100% { border-color: rgba(99, 102, 241, 0.3); box-shadow: 0 0 15px rgba(99, 102, 241, 0.1); }
+                50% { border-color: rgba(99, 102, 241, 0.6); box-shadow: 0 0 25px rgba(99, 102, 241, 0.25); }
+            }
+            .mask-idle { animation: pulseGlow 3s infinite ease-in-out; }
+        </style>
+    </head>
+    <body class="bg-slate-950 text-slate-100 min-h-screen flex flex-col items-center justify-center p-4 font-sans antialiased selection:bg-indigo-500/30">
         
-        <div class="absolute -top-24 -left-24 w-52 h-52 bg-indigo-500/10 rounded-full blur-[80px] pointer-events-none"></div>
-        <div class="absolute -bottom-24 -right-24 w-52 h-52 bg-emerald-500/10 rounded-full blur-[80px] pointer-events-none"></div>
+        <div class="max-w-md w-full bg-slate-900/60 rounded-[32px] shadow-[0_25px_50px_-12px_rgba(0,0,0,0.5)] border border-slate-800/50 p-6 text-center backdrop-blur-2xl relative overflow-hidden">
+            
+            <div class="absolute -top-24 -left-24 w-52 h-52 bg-indigo-500/10 rounded-full blur-[80px] pointer-events-none"></div>
+            <div class="absolute -bottom-24 -right-24 w-52 h-52 bg-emerald-500/10 rounded-full blur-[80px] pointer-events-none"></div>
 
-        <div class="mb-6 relative">
-            <div class="inline-flex items-center gap-1.5 bg-indigo-500/10 border border-indigo-500/20 px-3 py-1 rounded-full mb-2">
-                <span class="w-1.5 h-1.5 bg-indigo-400 rounded-full animate-ping"></span>
-                <span class="text-[10px] font-bold uppercase tracking-widest text-indigo-400">Sistema Online</span>
+            <div class="mb-6 relative">
+                <div class="inline-flex items-center gap-1.5 bg-indigo-500/10 border border-indigo-500/20 px-3 py-1 rounded-full mb-2">
+                    <span class="w-1.5 h-1.5 bg-indigo-400 rounded-full animate-ping"></span>
+                    <span class="text-[10px] font-bold uppercase tracking-widest text-indigo-400">Sistema Online</span>
+                </div>
+                <h1 class="text-2xl font-black tracking-tight bg-gradient-to-r from-slate-100 via-indigo-200 to-slate-100 bg-clip-text text-transparent">Biometria Facial</h1>
+                <p class="text-xs text-slate-400 mt-1">Módulo de Chamada Rápida</p>
             </div>
-            <h1 class="text-2xl font-black tracking-tight bg-gradient-to-r from-slate-100 via-indigo-200 to-slate-100 bg-clip-text text-transparent">Biometria Facial</h1>
-            <p class="text-xs text-slate-400 mt-1">Módulo de Chamada Rápida</p>
-        </div>
 
-        <div class="flex bg-slate-950/80 p-1.5 rounded-2xl mb-8 border border-slate-800/40 backdrop-blur-md">
-            <button id="tabPresenca" class="flex-1 py-3 rounded-xl text-xs font-bold transition-all duration-300 bg-slate-850 text-indigo-400 shadow-lg shadow-black/20 border border-slate-800/50 cursor-pointer">
-                <i class="fa-solid fa-user-check mr-2 text-sm"></i>Fazer Chamada
-            </button>
-            <button id="tabCadastro" class="flex-1 py-3 rounded-xl text-xs font-bold transition-all duration-300 text-slate-400 hover:text-slate-200 cursor-pointer">
-                <i class="fa-solid fa-user-plus mr-2 text-sm"></i>Novo Aluno
-            </button>
-        </div>
+            <div class="flex bg-slate-950/80 p-1.5 rounded-2xl mb-8 border border-slate-800/40 backdrop-blur-md">
+                <button id="tabPresenca" class="flex-1 py-3 rounded-xl text-xs font-bold transition-all duration-300 bg-slate-850 text-indigo-400 shadow-lg shadow-black/20 border border-slate-800/50 cursor-pointer">
+                    <i class="fa-solid fa-user-check mr-2 text-sm"></i>Fazer Chamada
+                </button>
+                <button id="tabCadastro" class="flex-1 py-3 rounded-xl text-xs font-bold transition-all duration-300 text-slate-400 hover:text-slate-200 cursor-pointer">
+                    <i class="fa-solid fa-user-plus mr-2 text-sm"></i>Novo Aluno
+                </button>
+            </div>
 
-        <div class="relative flex flex-col items-center justify-center mb-8">
-            <div id="faceMask" class="w-64 h-64 rounded-full border-4 border-dashed p-1 relative flex items-center justify-center bg-slate-950 shadow-2xl transition-all duration-500 overflow-hidden mask-idle">
-                <div id="laserLine" class="absolute left-0 right-0 h-0.5 top-0 hidden transition-all duration-300"></div>
-                
-                <div class="w-full h-full rounded-full overflow-hidden relative border border-slate-800/30">
-                    <video id="webcam" autoplay playsinline class="w-full h-full object-cover scale-x-[-1] transition-all duration-500"></video>
-                    <canvas id="canvas" class="hidden"></canvas>
+            <div class="relative flex flex-col items-center justify-center mb-8">
+                <div id="faceMask" class="w-64 h-64 rounded-full border-4 border-dashed p-1 relative flex items-center justify-center bg-slate-950 shadow-2xl transition-all duration-500 overflow-hidden mask-idle">
+                    <div id="laserLine" class="absolute left-0 right-0 h-0.5 top-0 hidden transition-all duration-300"></div>
+                    
+                    <div class="w-full h-full rounded-full overflow-hidden relative border border-slate-800/30">
+                        <video id="webcam" autoplay playsinline class="w-full h-full object-cover scale-x-[-1] transition-all duration-500"></video>
+                        <canvas id="canvas" class="hidden"></canvas>
+                    </div>
+
+                    <div id="centerIcon" class="absolute inset-0 flex items-center justify-center bg-slate-950/80 rounded-full opacity-0 pointer-events-none transition-all duration-500 scale-90">
+                        <div class="w-16 h-16 rounded-2xl bg-slate-900/50 border border-slate-800 flex items-center justify-center shadow-2xl">
+                            <i id="statusIcon" class="fa-solid fa-face-recognition text-4xl text-indigo-400"></i>
+                        </div>
+                    </div>
                 </div>
 
-                <div id="centerIcon" class="absolute inset-0 flex items-center justify-center bg-slate-950/80 rounded-full opacity-0 pointer-events-none transition-all duration-500 scale-90">
-                    <div class="w-16 h-16 rounded-2xl bg-slate-900/50 border border-slate-800 flex items-center justify-center shadow-2xl">
-                        <i id="statusIcon" class="fa-solid fa-face-recognition text-4xl text-indigo-400"></i>
+                <div class="mt-6 min-h-[48px] flex flex-col items-center justify-center px-4">
+                    <p id="instructionText" class="text-sm font-bold text-slate-200 tracking-wide transition-colors duration-300">Posicione seu rosto dentro do círculo</p>
+                    <p id="subInstructionText" class="text-xs text-slate-500 mt-1 font-medium transition-colors duration-300">Fique imóvel e olhe para a câmera</p>
+                </div>
+            </div>
+
+            <div class="space-y-4 relative z-10">
+                <div id="containerPresenca" class="block">
+                    <button id="btnCapturar" class="w-full bg-gradient-to-r from-indigo-600 to-indigo-500 hover:from-indigo-500 hover:to-indigo-400 active:scale-[0.99] text-white font-bold py-4 px-6 rounded-2xl shadow-xl shadow-indigo-600/10 border border-indigo-500/30 transition-all duration-200 text-sm tracking-wide cursor-pointer">
+                        Iniciar Reconhecimento
+                    </button>
+                </div>
+
+                <div id="containerCadastro" class="hidden space-y-4">
+                    <div class="relative flex items-center group">
+                        <i class="fa-solid fa-user absolute left-4 text-slate-500 text-sm transition-colors group-focus-within:text-emerald-400"></i>
+                        <input type="text" id="nomeAluno" placeholder="Nome Completo do Aluno" class="w-full bg-slate-950/80 border border-slate-800/80 rounded-2xl pl-12 pr-4 py-4 text-slate-100 placeholder-slate-600 focus:outline-none focus:border-emerald-500/50 text-sm uppercase font-semibold tracking-wide">
+                    </div>
+                    <button id="btnCadastrar" class="w-full bg-gradient-to-r from-emerald-600 to-emerald-500 hover:from-emerald-500 hover:to-emerald-400 active:scale-[0.99] text-white font-bold py-4 px-6 rounded-2xl shadow-xl shadow-emerald-600/10 border border-emerald-500/30 transition-all duration-200 text-sm tracking-wide cursor-pointer">
+                        Começar Mapeamento 3D
+                    </button>
+                </div>
+            </div>
+
+            <div id="resultCard" class="mt-6 p-4 rounded-2xl border hidden transform transition-all duration-500 scale-95 opacity-0">
+                <div class="flex items-center gap-4 text-left">
+                    <div id="resultIconBox" class="w-12 h-12 rounded-xl flex items-center justify-center text-xl shadow-inner transition-colors duration-300">
+                        <i id="resultIcon" class="fa-solid fa-circle-notch animate-spin"></i>
+                    </div>
+                    <div class="flex-1">
+                        <p id="resultTitle" class="font-black text-sm tracking-wide"></p>
+                        <p id="resultMsg" class="text-xs text-slate-400 mt-0.5 font-medium"></p>
                     </div>
                 </div>
             </div>
 
-            <div class="mt-6 min-h-[48px] flex flex-col items-center justify-center px-4">
-                <p id="instructionText" class="text-sm font-bold text-slate-200 tracking-wide transition-colors duration-300">Posicione seu rosto dentro do círculo</p>
-                <p id="subInstructionText" class="text-xs text-slate-500 mt-1 font-medium transition-colors duration-300">Fique imóvel e olhe para a câmera</p>
-            </div>
         </div>
 
-        <div class="space-y-4 relative z-10">
-            <div id="containerPresenca" class="block">
-                <button id="btnCapturar" class="w-full bg-gradient-to-r from-indigo-600 to-indigo-500 hover:from-indigo-500 hover:to-indigo-400 active:scale-[0.99] text-white font-bold py-4 px-6 rounded-2xl shadow-xl shadow-indigo-600/10 border border-indigo-500/30 transition-all duration-200 text-sm tracking-wide cursor-pointer">
-                    Iniciar Reconhecimento
-                </button>
-            </div>
-
-            <div id="containerCadastro" class="hidden space-y-4">
-                <div class="relative flex items-center group">
-                    <i class="fa-solid fa-user absolute left-4 text-slate-500 text-sm transition-colors group-focus-within:text-emerald-400"></i>
-                    <input type="text" id="nomeAluno" placeholder="Nome Completo do Aluno" class="w-full bg-slate-950/80 border border-slate-800/80 rounded-2xl pl-12 pr-4 py-4 text-slate-100 placeholder-slate-600 focus:outline-none focus:border-emerald-500/50 text-sm uppercase font-semibold tracking-wide">
-                </div>
-                <button id="btnCadastrar" class="w-full bg-gradient-to-r from-emerald-600 to-emerald-500 hover:from-emerald-500 hover:to-emerald-400 active:scale-[0.99] text-white font-bold py-4 px-6 rounded-2xl shadow-xl shadow-emerald-600/10 border border-emerald-500/30 transition-all duration-200 text-sm tracking-wide cursor-pointer">
-                    Começar Mapeamento 3D
-                </button>
-            </div>
-        </div>
-
-        <div id="resultCard" class="mt-6 p-4 rounded-2xl border hidden transform transition-all duration-500 scale-95 opacity-0">
-            <div class="flex items-center gap-4 text-left">
-                <div id="resultIconBox" class="w-12 h-12 rounded-xl flex items-center justify-center text-xl shadow-inner transition-colors duration-300">
-                    <i id="resultIcon" class="fa-solid fa-circle-notch animate-spin"></i>
-                </div>
-                <div class="flex-1">
-                    <p id="resultTitle" class="font-black text-sm tracking-wide"></p>
-                    <p id="resultMsg" class="text-xs text-slate-400 mt-0.5 font-medium"></p>
-                </div>
-            </div>
-        </div>
-
-    </div>
-
-    <script src="/static/js/app.js"></script>
-</body>
-</html>
+        <script src="/static/js/app.js"></script>
+    </body>
+    </html>

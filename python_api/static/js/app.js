@@ -120,32 +120,99 @@ function dispararFlash() {
 const esperar = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
 // CHAMADA
-btnCapturar.addEventListener('click', () => {
+btnCapturar.addEventListener('click', async () => {
     resetFaceMask();
     ativarLaser('indigo');
-    
+    btnCapturar.disabled = true;
+
+    updateInstructions("Reconhecendo...", "Aguarde o processamento da biometria", "scan");
+
     if (resultIcon) {
         resultIcon.className = "fa-solid fa-circle-notch animate-spin";
     }
     if (resultIconBox) {
         resultIconBox.className = "w-12 h-12 rounded-xl flex items-center justify-center text-xl shadow-inner text-indigo-400";
     }
-    
-    fetch('/reconhecer', { method: 'POST', body: obterFormDataParaChamada() })
-        .then(res => res.json())
-        .then(data => {
-            if (data.status === 'sucesso' && data.reconhecido) {
-                updateInstructions("Acesso Concluído", "Identidade Confirmada", "sucesso");
-                exibirPopupResultado("Presença Confirmada", `Bem-vindo, ${data.aluno}!`, "sucesso");
-            } else {
-                updateInstructions("Não Identificado", "Rosto não localizado", "erro");
-                exibirPopupResultado("Erro", data.mensagem || "Acesso não authorized.", "erro");
-            }
-        })
-        .catch(() => {
-            updateInstructions("Erro de Conexão", "Servidor indisponível", "erro");
-            exibirPopupResultado("Erro", "Não foi possível se comunicar com o sistema.", "erro");
+
+    try {
+        const respostaHttp = await fetch('/reconhecer', {
+            method: 'POST',
+            body: obterFormDataParaChamada()
         });
+
+        let data;
+        try {
+            data = await respostaHttp.json();
+        } catch (_) {
+            throw new Error(`A API respondeu em formato inválido (HTTP ${respostaHttp.status}).`);
+        }
+
+        // Rosto não reconhecido: não é erro de conexão, apenas tentativa sem identificação.
+        if (data.status === 'sucesso' && data.reconhecido === false) {
+            updateInstructions("Não Identificado", "Tente posicionar o rosto novamente", "erro");
+            exibirPopupResultado("Rosto não reconhecido", data.mensagem || "Não foi possível identificar o aluno.", "erro");
+            return;
+        }
+
+        // O Python reconheceu o aluno, mas o Node não confirmou o registro.
+        if (data.status === 'erro') {
+            const reconheceu = data.reconhecido === true;
+            updateInstructions(
+                reconheceu ? "Identidade Confirmada" : "Erro no Reconhecimento",
+                reconheceu ? "Falha ao registrar no sistema escolar" : "Não foi possível concluir a chamada",
+                "erro"
+            );
+            exibirPopupResultado(
+                reconheceu ? "Presença não registrada" : "Erro",
+                data.mensagem || "Não foi possível concluir a operação.",
+                "erro"
+            );
+            return;
+        }
+
+        if (data.status === 'sucesso' && data.reconhecido === true) {
+            switch (data.evento) {
+                case 'ENTRADA_REGISTRADA':
+                    updateInstructions("Entrada Confirmada", "Presença registrada no banco", "sucesso");
+                    exibirPopupResultado("Presença Confirmada", `Bem-vindo, ${data.aluno}!`, "sucesso");
+                    break;
+
+                case 'SAIDA_REGISTRADA':
+                    updateInstructions("Saída Confirmada", "Registro atualizado no banco", "sucesso");
+                    exibirPopupResultado("Saída Confirmada", `Até mais, ${data.aluno}!`, "sucesso");
+                    break;
+
+                case 'SAIDA_ANTECIPADA_REGISTRADA':
+                    updateInstructions("Saída Antecipada", "Registro atualizado no banco", "sucesso");
+                    exibirPopupResultado("Saída Registrada", `${data.aluno}: saída antecipada registrada.`, "sucesso");
+                    break;
+
+                case 'IGNORADO':
+                    updateInstructions("Chamada já concluída", "Nenhum novo registro foi criado", "sucesso");
+                    exibirPopupResultado("Registro já concluído", data.mensagem || `${data.aluno} já concluiu o ciclo de hoje.`, "sucesso");
+                    break;
+
+                default:
+                    if (data.presenca_registrada) {
+                        updateInstructions("Registro Confirmado", "Backend confirmou a operação", "sucesso");
+                        exibirPopupResultado("Registro Confirmado", data.mensagem || `Aluno: ${data.aluno}`, "sucesso");
+                    } else {
+                        updateInstructions("Reconhecimento concluído", "Nenhum novo registro foi criado", "sucesso");
+                        exibirPopupResultado("Reconhecimento concluído", data.mensagem || `Aluno: ${data.aluno}`, "sucesso");
+                    }
+            }
+            return;
+        }
+
+        throw new Error(data.mensagem || "Resposta inesperada da API.");
+
+    } catch (error) {
+        console.error(error);
+        updateInstructions("Erro de Conexão", "Servidor indisponível", "erro");
+        exibirPopupResultado("Erro", error.message || "Não foi possível se comunicar com o sistema.", "erro");
+    } finally {
+        btnCapturar.disabled = false;
+    }
 });
 
 function obterFormDataParaChamada() {

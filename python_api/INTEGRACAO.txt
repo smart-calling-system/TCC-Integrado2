@@ -1,0 +1,41 @@
+TCC FACE - INTEGRAÇÃO PYTHON -> NODE -> POSTGRES
+
+1) Abra .env e altere IA_API_KEY para a MESMA chave do backend do Neil.
+   A chave antiga que estava no projeto deve ser rotacionada.
+
+2) Local:
+   NODE_API_URL=http://localhost:3000/api/v1
+
+   Render:
+   NODE_API_URL=https://URL-REAL-DO-BACKEND.onrender.com/api/v1
+
+3) Abra mapeamento_alunos.json e coloque UUIDs REAIS do PostgreSQL.
+   Os nomes precisam ser iguais aos nomes salvos nas fotos, por exemplo:
+   PIETRO ANDRADE_1.jpg
+   PIETRO ANDRADE_2.jpg
+   PIETRO ANDRADE_3.jpg
+
+4) Testes antes da câmera:
+   Python: GET http://localhost:8000/health
+   Ponte:  GET http://localhost:8000/health/node
+
+5) Teste final:
+   - abra a interface Python;
+   - faça o reconhecimento;
+   - Python envia POST /api/v1/ia/registrar-presenca;
+   - Node deve responder HTTP 201;
+   - confirme a presença no PostgreSQL.
+
+6) Contrato para o frontend do Miguel enviar foto ao Python:
+   POST /reconhecer
+   Content-Type: multipart/form-data
+   campo: file
+
+   A resposta do Python contém:
+   status, reconhecido, presenca_registrada, aluno, faceScore, evento, mensagem.
+
+Eventos possíveis vindos do Node:
+   ENTRADA_REGISTRADA
+   SAIDA_REGISTRADA
+   SAIDA_ANTECIPADA_REGISTRADA
+   IGNORADO
