@@ -20,18 +20,18 @@ class IaController {
     }
   }
 
-  // 2. CORRIGIDO: Nome alterado para bater com o ia.routes.js
+  // 2. Processa o reconhecimento vindo do Python
   async processarReconhecimento(req, res, next) {
     try {
-      // CORREÇÃO: Adicionando o imagemHash na extração
+      // Extraindo os dados do payload
       const { alunoId, turmaId, faceScore, imagemHash } = req.body;
       
-      const iaService = require('./ia.service');
+      // Usa o iaService importado no topo do arquivo diretamente
       const resultado = await iaService.processarReconhecimento({ 
         alunoId, 
         turmaId, 
         faceScore, 
-        imagemHash // <-- Passando pra frente!
+        imagemHash 
       });
 
       return res.status(200).json({ status: 'success', data: resultado });

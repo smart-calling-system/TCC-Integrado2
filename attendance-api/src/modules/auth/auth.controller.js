@@ -30,22 +30,21 @@ class AuthController {
     }
   }
 
-  async logout(req, res) {
-    const authHeader = req.headers.authorization;
-    if (authHeader) {
-      const token = authHeader.split(' ')[1];
-      if (!global.tokenBlacklist) global.tokenBlacklist = new Set();
+  async logout(req, res, next) {
+    try {
+      const authHeader = req.headers.authorization;
       
-      global.tokenBlacklist.add(token);
-
-      const fs = require('fs');
-      const path = require('path');
-      fs.writeFileSync(
-        path.join(__dirname, '../../../blacklist.json'), 
-        JSON.stringify(Array.from(global.tokenBlacklist))
-      );
+      if (authHeader) {
+        const token = authHeader.split(' ')[1];
+        
+        // Passamos a responsabilidade de salvar no banco para o service
+        await authService.logout(token);
+      }
+      
+      return res.status(200).json({ message: 'Logout realizado com sucesso.' });
+    } catch (error) {
+      next(error);
     }
-    return res.status(200).json({ message: 'Logout realizado com sucesso.' });
   }
 }
 

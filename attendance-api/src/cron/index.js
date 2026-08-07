@@ -1,6 +1,4 @@
 const cron = require('node-cron');
-const { exec } = require('child_process');
-const path = require('path');
 const logger = require('../utils/logger');
 const enviarEmail = require('../utils/email');
 const presencaService = require('../modules/presencas/presenca.service');
@@ -8,7 +6,7 @@ const relatorioService = require('../modules/relatorios/relatorio.service');
 
 const iniciarCronJobs = () => {
 
-  // 1. FALTAS AUTOMÁTICAS: Todo dia útil (Seg-Sex) às 23h00 (A gente já tinha, chupa Claude!)
+  // 1. FALTAS AUTOMÁTICAS: Todo dia útil (Seg-Sex) às 23h00
   cron.schedule('0 23 * * 1-5', async () => {
     try {
       await presencaService.processarFaltasAutomaticasDoDia();
@@ -34,7 +32,6 @@ const iniciarCronJobs = () => {
   // 3. ALERTA DE BAIXA FREQUÊNCIA: Toda Sexta-feira às 18h00
   cron.schedule('0 18 * * 5', async () => {
     try {
-      // Puxa a lista da galera abaixo de 75%
       const alunosEmRisco = await relatorioService.listarAlunosBaixaFrequencia(75);
       if (alunosEmRisco.length > 0) {
         const nomes = alunosEmRisco.map(a => `- ${a.nome} (${a.frequencia}%)`).join('\n');
@@ -56,25 +53,30 @@ const iniciarCronJobs = () => {
     }
   });
 
-  // 5. BACKUP AUTOMÁTICO DO BANCO DE DADOS: Todo dia às 02h00 da madrugada
-  cron.schedule('0 2 * * *', () => {
-    const fileName = `backup_senai_${Date.now()}.sql`;
-    const backupPath = path.join(__dirname, '../../backups', fileName);
-    
-    // Comando do PostgreSQL para fazer o dump (exige que o pg_dump esteja instalado no servidor de produção)
-    const dbUrl = process.env.DATABASE_URL;
-    const comando = `pg_dump "${dbUrl}" > "${backupPath}"`;
-
-    exec(comando, (error) => {
-      if (error) {
-        logger.error(`🚨 [CRON BACKUP] Falha ao fazer backup do DB: ${error.message}`);
-        return;
-      }
-      logger.info(`💾 [CRON BACKUP] Backup realizado com sucesso: ${fileName}`);
-    });
+  // 5. LIMPEZA DE LOGS DE AUDITORIA: Todo dia 1º do mês às 04h00 da manhã
+  cron.schedule('0 4 1 * *', async () => {
+    try {
+      const dayjs = require('dayjs');
+      const prisma = require('../../database/client'); // Caminho do banco para deletar direto
+      
+      // Calcula a data de 3 meses atrás
+      const dataLimite = dayjs().subtract(3, 'month').toDate();
+      
+      const apagados = await prisma.auditLog.deleteMany({
+        where: {
+          criadoEm: {
+            lt: dataLimite 
+          }
+        }
+      });
+      
+      logger.info(`🤖 [CRON PURGE] Limpeza de auditoria: ${apagados.count} logs antigos foram apagados.`);
+    } catch (error) {
+      logger.error('🚨 [CRON PURGE] Erro ao limpar AuditLogs: ' + error.message);
+    }
   });
 
-  logger.info('⏰ [CRON HUB] Todos os agendamentos (Cozinha, Relatórios, Backup) ativados.');
+  logger.info('⏰ [CRON HUB] Todos os agendamentos (Cozinha, Relatórios, Faltas Automáticas e Limpeza de Logs) ativados.');
 };
 
 module.exports = iniciarCronJobs;

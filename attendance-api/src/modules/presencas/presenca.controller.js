@@ -1,8 +1,10 @@
 const presencaService = require('./presenca.service');
+// Movemos o repository para o topo (usado no sincronizarBatch)
+const presencaRepository = require('./presenca.repository'); 
 
 class PresencaController {
   
-async getAll(req, res, next) {
+  async getAll(req, res, next) {
     try {
       // Pega os parâmetros da query string (se não vierem, a API assume 1 e 10)
       const pagina = req.query.page || 1;
@@ -48,8 +50,6 @@ async getAll(req, res, next) {
       // Pega os dados enviados pelo Front-end (Secretaria/Professor)
       const { alunoId, turmaId, disciplinaId, status, origem } = req.body;
       
-      const presencaService = require('./presenca.service');
-      
       const novaPresenca = await presencaService.registrarPresencaManual({
         alunoId,
         turmaId,
@@ -81,8 +81,6 @@ async getAll(req, res, next) {
         });
       }
 
-      const presencaRepository = require('./presenca.repository');
-      
       // Repassa o lote pro nosso novo método blindado!
       const resultado = await presencaRepository.sincronizarBatchOffline(lote);
 
@@ -101,8 +99,6 @@ async getAll(req, res, next) {
     try {
       const { id } = req.params; // ID da presença na URL
       const { status } = req.body; // ex: 'SAIDA_ANTECIPADA' ou 'PRESENTE'
-      
-      const presencaService = require('./presenca.service');
 
       // Delega o trabalho pesado para o Service
       const presencaAtualizada = await presencaService.registrarSaida(id, status);

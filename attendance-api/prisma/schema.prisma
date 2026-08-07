@@ -33,7 +33,7 @@ enum StatusPresenca {
 enum OrigemPresenca {
   FACIAL
   MANUAL
-  SISTEMA // <--- Adicionado para o nosso Cron Job de faltas automáticas!
+  SISTEMA 
   OFFLINE
 }
 
@@ -84,6 +84,15 @@ model Usuario {
   @@map("usuarios")
 }
 
+model JwtBlacklist {
+  id        Int      @id @default(autoincrement())
+  token     String   @unique
+  expiresAt DateTime @map("expires_at")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@map("jwt_blacklist")
+}
+
 model Aluno {
   id              String       @id @default(uuid())
   nome            String
@@ -95,7 +104,7 @@ model Aluno {
   atualizadoEm    DateTime     @updatedAt @map("atualizado_em")
   
   alertas         Alerta[]
-  iaLogs          IaLog[]      // <--- Relação atualizada pro modelo novo!
+  iaLogs          IaLog[]      
   turmas          TurmaAluno[]
   presencas       Presenca[]
 
@@ -103,57 +112,57 @@ model Aluno {
 }
 
 model Turma {
-  id           String       @id @default(uuid())
-  nome         String
-  anoLetivo    Int          @map("ano_letivo")
-  turno        Turno        @default(MANHA)
-  ativo        Boolean      @default(true)
-  criadoEm     DateTime     @default(now()) @map("criado_em")
+  id         String       @id @default(uuid())
+  nome       String
+  anoLetivo  Int          @map("ano_letivo")
+  turno      Turno        @default(MANHA)
+  ativo      Boolean      @default(true)
+  criadoEm   DateTime     @default(now()) @map("criado_em")
   
-  alunos       TurmaAluno[]
-  presencas    Presenca[]
-  horarios     Horario[]    
-  iaLogs       IaLog[]      // <--- Relação atualizada pro modelo novo!
-  alertas      Alerta[]
+  alunos     TurmaAluno[]
+  presencas  Presenca[]
+  horarios   Horario[]    
+  iaLogs     IaLog[]      
+  alertas    Alerta[]
   
   @@map("turmas")
 }
 
 model TurmaAluno {
-  alunoId      String       @map("aluno_id")
-  turmaId      String       @map("turma_id")
-  ativo        Boolean      @default(true)
+  alunoId  String  @map("aluno_id")
+  turmaId  String  @map("turma_id")
+  ativo    Boolean @default(true)
   
-  aluno        Aluno        @relation(fields: [alunoId], references: [id], onDelete: Cascade)
-  turma        Turma        @relation(fields: [turmaId], references: [id], onDelete: Cascade)
+  aluno    Aluno   @relation(fields: [alunoId], references: [id], onDelete: Cascade)
+  turma    Turma   @relation(fields: [turmaId], references: [id], onDelete: Cascade)
 
   @@id([alunoId, turmaId])
   @@map("turmas_alunos")
 }
 
 model Disciplina {
-  id           String       @id @default(uuid())
-  nome         String
-  codigo       String       @unique
-  ativo        Boolean      @default(true)
+  id        String     @id @default(uuid())
+  nome      String
+  codigo    String     @unique
+  ativo     Boolean    @default(true)
   
-  presencas    Presenca[]
-  horarios     Horario[]  
+  presencas Presenca[]
+  horarios  Horario[]  
 
   @@map("disciplinas")
 }
 
 model Horario {
-  id           String       @id @default(uuid())
-  turmaId      String       @map("turma_id")
-  disciplinaId String       @map("disciplina_id")
-  diaSemana    DiaSemana    @map("dia_semana")
-  horaInicio   String       @map("hora_inicio") 
-  horaFim      String       @map("hora_fim")    
-  ativo        Boolean      @default(true)
+  id           String     @id @default(uuid())
+  turmaId      String     @map("turma_id")
+  disciplinaId String     @map("disciplina_id")
+  diaSemana    DiaSemana  @map("dia_semana")
+  horaInicio   String     @map("hora_inicio") 
+  horaFim      String     @map("hora_fim")    
+  ativo        Boolean    @default(true)
 
-  turma        Turma        @relation(fields: [turmaId], references: [id], onDelete: Cascade)
-  disciplina   Disciplina   @relation(fields: [disciplinaId], references: [id], onDelete: Cascade)
+  turma        Turma      @relation(fields: [turmaId], references: [id], onDelete: Cascade)
+  disciplina   Disciplina @relation(fields: [disciplinaId], references: [id], onDelete: Cascade)
 
   @@map("horarios")
 }
@@ -168,15 +177,23 @@ model Presenca {
   origem        OrigemPresenca @default(MANUAL)
   faceScore     Float?         @map("face_score")
   
+  // Mantém a hora exata da batida (útil para auditoria e logs)
   dataHora      DateTime       @default(now()) @map("data_hora")
   dataHoraSaida DateTime?      @map("data_hora_saida") 
+  
+  // NOVA COLUNA: Isola apenas a data (YYYY-MM-DD) para viabilizar a trava de unicidade
+  data          DateTime       @default(now()) @db.Date @map("data")
   
   aluno         Aluno          @relation(fields: [alunoId], references: [id], onDelete: Cascade)
   turma         Turma          @relation(fields: [turmaId], references: [id], onDelete: Cascade)
   disciplina    Disciplina?    @relation(fields: [disciplinaId], references: [id], onDelete: SetNull)
   justificativa Justificativa?
 
-  @@index([alunoId, dataHora]) 
+  // A MAGIA ACONTECE AQUI: O banco de dados agora PROÍBE duas inserções do mesmo aluno na mesma turma no mesmo dia.
+  @@unique([alunoId, turmaId, data], name: "aluno_turma_data_unica")
+  
+  // Índices para busca rápida (performance)
+  @@index([alunoId, data]) 
   @@map("presencas")
 }
 
@@ -206,20 +223,25 @@ model IaLog {
   aluno       Aluno?      @relation(fields: [alunoId], references: [id], onDelete: SetNull)
   turma       Turma?      @relation(fields: [turmaId], references: [id], onDelete: SetNull)
 
+  // ÍNDICES ADICIONADOS PARA PERFORMANCE
+  @@index([alunoId])
+  @@index([turmaId])
   @@map("ia_logs")
 }
 
 model Alerta {
   id        String   @id @default(uuid())
   alunoId   String   @map("aluno_id")
-  turmaId   String?  @map("turma_id") // <--- ADICIONE A INTERROGAÇÃO AQUI
+  turmaId   String?  @map("turma_id") 
   mensagem  String
   resolvido Boolean  @default(false)
   criadoEm  DateTime @default(now()) @map("criado_em")
 
   aluno     Aluno    @relation(fields: [alunoId], references: [id], onDelete: Cascade)
-  turma     Turma?   @relation(fields: [turmaId], references: [id], onDelete: Cascade) // <--- E AQUI
+  turma     Turma?   @relation(fields: [turmaId], references: [id], onDelete: Cascade) 
 
+  // ÍNDICE ADICIONADO PARA PERFORMANCE
+  @@index([alunoId])
   @@map("alertas")
 }
 
@@ -236,5 +258,8 @@ model AuditLog {
 
   usuario      Usuario?  @relation(fields: [usuarioId], references: [id], onDelete: SetNull)
 
+  // ÍNDICES ADICIONADOS PARA PERFORMANCE
+  @@index([usuarioId])
+  @@index([criadoEm]) // Útil para o Cron Job de limpeza
   @@map("audit_logs")
 }

@@ -9,12 +9,10 @@ class PresencaRepository {
     });
   }
 
-  // Agora recebe página e limite, com valores padrão (1 e 10)
   async findAll(pagina = 1, limite = 10) {
     const skip = (pagina - 1) * limite;
     const take = Number(limite);
 
-    // Faz a busca dos dados e a contagem total ao mesmo tempo
     const [presencas, total] = await prisma.$transaction([
       prisma.presenca.findMany({
         skip,
@@ -55,7 +53,6 @@ class PresencaRepository {
   }
 
   async findPresencasDeHoje() {
-    // Pega o início (00:00:00) e o fim (23:59:59) do dia de hoje
     const inicioDoDia = dayjs().startOf('day').toDate();
     const fimDoDia = dayjs().endOf('day').toDate();
 
@@ -71,16 +68,13 @@ class PresencaRepository {
     });
   }
 
-  // Novo método para o cálculo de frequência
-  // Modificado para aceitar inicio e fim opcionais
   async countByStatusAndAluno(alunoId, dataInicio, dataFim) {
     const whereClause = { alunoId };
 
-    // Se o frontend mandou as datas, nós construímos o filtro dinamicamente
     if (dataInicio || dataFim) {
       whereClause.dataHora = {};
-      if (dataInicio) whereClause.dataHora.gte = new Date(dataInicio); // Maior ou igual ao início
-      if (dataFim) whereClause.dataHora.lte = new Date(dataFim);       // Menor ou igual ao fim
+      if (dataInicio) whereClause.dataHora.gte = new Date(dataInicio); 
+      if (dataFim) whereClause.dataHora.lte = new Date(dataFim);       
     }
 
     return await prisma.presenca.groupBy({
@@ -92,7 +86,6 @@ class PresencaRepository {
     });
   }
 
-  // Verifica se o aluno já registrou presença nesta turma no dia de hoje
   async verificarPresencaExistenteHoje(alunoId, turmaId) {
     const inicioDoDia = dayjs().startOf('day').toDate();
     const fimDoDia = dayjs().endOf('day').toDate();
@@ -108,10 +101,9 @@ class PresencaRepository {
       }
     });
 
-    return !!presenca; // Retorna true se encontrou, false se não encontrou
+    return !!presenca; 
   }
 
-  // Busca o registro completo de hoje do aluno na turma (Corrigido com dayjs)
   async buscarPresencaCompletaDeHoje(alunoId, turmaId) {
     const inicioDoDia = dayjs().startOf('day').toDate();
     const fimDoDia = dayjs().endOf('day').toDate();
@@ -128,7 +120,6 @@ class PresencaRepository {
     });
   }
 
-  // Busca o registro completo do aluno em uma disciplina específica no dia de hoje (Corrigido com dayjs)
   async buscarPresencaDeHojePorDisciplina(alunoId, turmaId, disciplinaId) {
     const inicioDoDia = dayjs().startOf('day').toDate();
     const fimDoDia = dayjs().endOf('day').toDate();
@@ -146,11 +137,9 @@ class PresencaRepository {
     });
   }
 
-  // Atualiza apenas o campo de saída
   async registrarSaida(presencaId, novoStatus = null) {
     const dataUpdate = { dataHoraSaida: new Date() };
 
-    // Se o service detetar que foi mais cedo, nós atualizamos o status da presença
     if (novoStatus) {
       dataUpdate.status = novoStatus;
     }
@@ -160,7 +149,7 @@ class PresencaRepository {
       data: dataUpdate
     });
   }
-  // 1. Conta presenças agrupadas por disciplina para o relatório por matéria
+
   async countAgrupadoPorDisciplina(alunoId, dataInicio, dataFim) {
     const whereClause = { alunoId };
 
@@ -177,7 +166,6 @@ class PresencaRepository {
     });
   }
 
-  // 2. Conta as presenças de todos os alunos de uma turma específica (para o consolidado da secretaria)
   async countConsolidadoPorTurma(turmaId, dataInicio, dataFim) {
     const whereClause = { turmaId };
 
@@ -193,63 +181,53 @@ class PresencaRepository {
       _count: { _all: true }
     });
   }
+
   // ==========================================
-  // SYNC OFFLINE (A PROVA DE DUPLICIDADE)
+  // SYNC OFFLINE: REFEITO COM BULK INSERT 🚀
   // ==========================================
   async sincronizarBatchOffline(lotePresencas) {
-    const prisma = require('../../database/client');
-    const resultados = { inseridos: 0, ignorados: 0, erros: 0 };
-
-    for (const item of lotePresencas) {
-      try {
-        // Pega a data exata em que a falta/presença foi gerada lá no tablet offline
-        const dataRegistro = item.dataHora ? new Date(item.dataHora) : new Date();
-        
-        // Define começo e fim daquele dia específico para buscar duplicatas
-        const diaInicio = new Date(dataRegistro);
-        diaInicio.setHours(0, 0, 0, 0);
-        const diaFim = new Date(dataRegistro);
-        diaFim.setHours(23, 59, 59, 999);
-
-        // A TRAVA DE DUPLICIDADE (O que o Claude pediu!)
-        const duplicado = await prisma.presenca.findFirst({
-          where: {
-            alunoId: item.alunoId,
-            turmaId: item.turmaId,
-            disciplinaId: item.disciplinaId || null,
-            dataHora: {
-              gte: diaInicio,
-              lte: diaFim
-            }
-          }
-        });
-
-        if (duplicado) {
-          resultados.ignorados++;
-          continue; // Pula para o próximo registro do lote!
-        }
-
-        // Se passou pela trava, a gente salva com as nomenclaturas corretas
-        await prisma.presenca.create({
-          data: {
-            alunoId: item.alunoId,
-            turmaId: item.turmaId,
-            disciplinaId: item.disciplinaId || null,
-            status: item.status || 'PRESENTE',
-            origem: 'OFFLINE', // O nosso novo Enum!
-            dataHora: dataRegistro, // O nome correto que estava dando pau
-            faceScore: item.faceScore || null
-          }
-        });
-        
-        resultados.inseridos++;
-      } catch (err) {
-        console.error(`Erro ao sincronizar item offline do aluno ${item.alunoId}:`, err.message);
-        resultados.erros++;
-      }
+    if (!lotePresencas || lotePresencas.length === 0) {
+      return { inseridos: 0, ignorados: 0, erros: 0 };
     }
-    
-    return resultados;
+
+    try {
+      // 1. Prepara todos os dados em memória usando o map (rápido!)
+      const payloadPrisma = lotePresencas.map((item) => {
+        // Usa o dayjs para garantir que estamos lidando com a data certinha
+        const dataRegistro = item.dataHora ? dayjs(item.dataHora) : dayjs();
+
+        return {
+          alunoId: item.alunoId,
+          turmaId: item.turmaId,
+          disciplinaId: item.disciplinaId || null,
+          status: item.status || 'PRESENTE',
+          origem: 'OFFLINE',
+          faceScore: item.faceScore || null,
+          dataHora: dataRegistro.toDate(), // Mantém a hora exata da batida
+          data: dataRegistro.startOf('day').toDate() // NOVA COLUNA DA TRAVA DE UNICIDADE
+        };
+      });
+
+      // 2. Faz o Insert em Lote de uma só vez (Apenas 1 consulta ao banco!)
+      // O skipDuplicates: true resolve todos os conflitos automaticamente
+      const resultado = await prisma.presenca.createMany({
+        data: payloadPrisma,
+        skipDuplicates: true 
+      });
+
+      // 3. Calcula as métricas matemáticas
+      const inseridos = resultado.count;
+      const ignorados = lotePresencas.length - inseridos;
+
+      return {
+        inseridos,
+        ignorados,
+        erros: 0
+      };
+    } catch (err) {
+      console.error('🚨 Erro ao sincronizar lote offline:', err.message);
+      throw err; // Deixa o erro subir pro Controller tratar no next(error)
+    }
   }
 }
 

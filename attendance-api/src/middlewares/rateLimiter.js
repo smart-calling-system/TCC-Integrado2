@@ -1,11 +1,24 @@
 const rateLimit = require('express-rate-limit');
 
 const limiter = rateLimit({
-  windowMs: process.env.RATE_LIMIT_WINDOW_MS || 15 * 60 * 1000, // Usa do .env ou 15 min padrão
-  max: process.env.RATE_LIMIT_MAX || 100, // Usa do .env ou 100 padrão
+  windowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS, 10) || 15 * 60 * 1000, 
+  max: parseInt(process.env.RATE_LIMIT_MAX, 10) || 100, 
+  
+  keyGenerator: (req) => {
+    if (req.usuario && req.usuario.id) {
+      return req.usuario.id;
+    }
+    return req.ip;
+  },
+
+  // 👇 A MÁGICA AQUI: Desliga a validação rigorosa de IPv6
+  validate: {
+    keyGeneratorIpFallback: false
+  },
+
   message: {
     status: 'error',
-    message: 'Muitas requisições feitas a partir deste IP. Tente novamente mais tarde.'
+    message: 'Muitas requisições feitas a partir deste usuário ou IP. Tente novamente mais tarde.'
   }
 });
 

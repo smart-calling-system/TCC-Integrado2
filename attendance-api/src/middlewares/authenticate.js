@@ -2,11 +2,7 @@ const jwt = require('jsonwebtoken');
 const { promisify } = require('util');
 const authConfig = require('../config/auth.config');
 const AppError = require('../utils/AppError');
-
-// Inicializa a Blacklist global se ainda não existir
-if (!global.tokenBlacklist) {
-  global.tokenBlacklist = new Set();
-}
+const prisma = require('../database/client'); // Certifique-se de que este caminho está correto para o seu projeto
 
 module.exports = async (req, res, next) => {
   try {
@@ -29,8 +25,12 @@ module.exports = async (req, res, next) => {
       throw new AppError('Formato do token inválido.', 401);
     }
 
-    // 3. Verificação da Blacklist (Direito ao esquecimento/Logout efetivo)
-    if (global.tokenBlacklist.has(token)) {
+    // 3. Verificação da Blacklist no Banco de Dados (Substitui o global.tokenBlacklist)
+    const tokenRevogado = await prisma.jwtBlacklist.findUnique({
+      where: { token }
+    });
+
+    if (tokenRevogado) {
       throw new AppError('Sessão encerrada. Faça login novamente.', 401);
     }
 

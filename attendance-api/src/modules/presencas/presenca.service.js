@@ -2,42 +2,48 @@ const presencaRepository = require('./presenca.repository');
 const alunoService = require('../alunos/aluno.service');
 const turmaService = require('../turmas/turma.service');
 const AppError = require('../../utils/AppError');
+const dayjs = require('dayjs');
+const prisma = require('../../database/client'); // Trazendo pro topo para todo mundo usar
 
 class PresencaService {
-  async registrarPresencaManual(data) {
-    const { alunoId, turmaId, disciplinaId, status, origem, faceScore } = data;
+  async registrarPresencaManual(payload) {
+    const { alunoId, turmaId, disciplinaId, status, origem, faceScore } = payload;
 
     // 1. Valida se o aluno e a turma existem e estão ativos antes de registrar a presença
     await alunoService.buscarAlunoPorId(alunoId);
     await turmaService.buscarTurmaPorId(turmaId);
 
-    // 2. O ESCUDO ANTI-DUPLICATA: Verifica se o aluno já tem presença hoje para essa turma
-    const jaRegistrado = await presencaRepository.verificarPresencaExistenteHoje(alunoId, turmaId);
+    // O início do dia para preencher o novo campo "data" (Trava de unicidade)
+    const dataAtual = dayjs().startOf('day').toDate(); 
 
-    if (jaRegistrado) {
-      // Devolve ERRO 409 (Conflict) para o Miguel exibir o pop-up vermelho no app
-      throw new AppError('Este aluno já possui uma presença registrada para esta turma no dia de hoje.', 409);
+    try {
+      // O ESCUDO AGORA É O BANCO DE DADOS: O Prisma vai tentar inserir.
+      // Se já existir para hoje, ele vai gritar um erro (P2002) nativamente.
+      return await prisma.presenca.create({
+        data: {
+          alunoId,
+          turmaId,
+          disciplinaId,
+          status: status || 'PRESENTE',
+          origem: origem || 'MANUAL', 
+          faceScore: faceScore || null,
+          data: dataAtual // <- Aqui usamos o campo novo que garante unicidade
+        }
+      });
+    } catch (error) {
+      // P2002 é o código do Prisma para "Unique constraint failed"
+      if (error.code === 'P2002') {
+        throw new AppError('Este aluno já possui uma presença registrada para esta turma no dia de hoje.', 409);
+      }
+      throw error; // Se for outro erro de banco, repassa pra frente
     }
-
-    // 3. Se passou no escudo, cria o registro no banco
-    // Se a presença manual não tiver data, o Prisma assume o "agora" (default: now())
-    return await presencaRepository.create({
-      alunoId,
-      turmaId,
-      disciplinaId,
-      status: status || 'PRESENTE',
-      origem: origem || 'MANUAL', 
-      faceScore: faceScore || null
-    });
   }
 
-  // Repassa a página e o limite
   async listarTodas(pagina, limite) {
     return await presencaRepository.findAll(pagina, limite);
   }
 
   async listarPorAluno(alunoId) {
-    // Garante que o aluno existe antes de buscar as presenças
     await alunoService.buscarAlunoPorId(alunoId);
     return await presencaRepository.findByAlunoId(alunoId);
   }
@@ -50,64 +56,88 @@ class PresencaService {
   async listarPresencasHoje() {
     return await presencaRepository.findPresencasDeHoje();
   }
-  // O Robô da Madrugada: Processa faltas automáticas para quem não foi na aula
-  async processarFaltasAutomaticasDoDia() {
-    const dayjs = require('dayjs');
-    const prisma = require('../../database/client'); // Importa o prisma direto para queries complexas
 
+  // ==========================================
+  // O Robô da Madrugada: Otimizado (Sem N+1)
+  // ==========================================
+  async processarFaltasAutomaticasDoDia() {
     const diasSemanaMap = ['DOMINGO', 'SEGUNDA', 'TERCA', 'QUARTA', 'QUINTA', 'SEXTA', 'SABADO'];
     const diaAtualEnum = diasSemanaMap[dayjs().day()];
 
     if (diaAtualEnum === 'DOMINGO') return; // Não faz nada no domingo
 
-    console.log('🤖 [CRON JOB] Iniciando varredura de faltas automáticas...');
+    console.log('🤖 [CRON JOB] Iniciando varredura de faltas automáticas (Lote)...');
 
-    // 1. Busca todas as aulas que aconteceram hoje na grade horária
+    // 1. Busca todas as aulas que aconteceram hoje (Query 1)
     const aulasDeHoje = await prisma.horario.findMany({
       where: { diaSemana: diaAtualEnum, ativo: true },
       include: { turma: { include: { alunos: { include: { aluno: true } } } } }
     });
 
-    let faltasRegistradas = 0;
+    if (aulasDeHoje.length === 0) {
+      console.log('🤖 [CRON JOB] Nenhuma aula programada para hoje.');
+      return;
+    }
 
-    // 2. Para cada aula de hoje...
+    // 2. Busca TODAS as presenças já registradas hoje de UMA SÓ VEZ (Query 2)
+    const inicioDoDia = dayjs().startOf('day').toDate();
+    const fimDoDia = dayjs().endOf('day').toDate();
+
+    const presencasHoje = await prisma.presenca.findMany({
+      where: {
+        dataHora: { gte: inicioDoDia, lte: fimDoDia }
+      },
+      select: { alunoId: true, turmaId: true } // Traz só o que precisamos pra não pesar a RAM
+    });
+
+    // 3. Cria um "Set" em memória: busca ultra-rápida!
+    // Exemplo do Set: ["aluno1-turmaA", "aluno2-turmaA"]
+    const presencasMap = new Set(
+      presencasHoje.map(p => `${p.alunoId}-${p.turmaId}`)
+    );
+
+    const faltasParaInserir = [];
+    const dataUnica = dayjs().startOf('day').toDate(); // Para o campo data
+
+    // 4. Cruza os dados EM MEMÓRIA (Zero consultas ao banco aqui dentro)
     for (const aula of aulasDeHoje) {
       const turmaId = aula.turmaId;
       const disciplinaId = aula.disciplinaId;
-
-      // 3. Pega os alunos matriculados e ativos nessa turma
       const alunosDaTurma = aula.turma.alunos.filter(vinculo => vinculo.aluno.ativo);
 
       for (const vinculo of alunosDaTurma) {
         const alunoId = vinculo.alunoId;
+        const chaveIdentificadora = `${alunoId}-${turmaId}`;
 
-        // 4. Verifica se o aluno teve presença (ou falta justificada) nessa aula hoje
-        const presencaHoje = await presencaRepository.buscarPresencaCompletaDeHoje(alunoId, turmaId);
-
-        // 5. Se NÃO tem registro nenhum, ele faltou! A canetada acontece aqui.
-        if (!presencaHoje) {
-          await presencaRepository.create({
+        // Se a chave NÃO existe no nosso Set de presenças de hoje, ele faltou.
+        if (!presencasMap.has(chaveIdentificadora)) {
+          faltasParaInserir.push({
             alunoId,
             turmaId,
             disciplinaId,
             status: 'AUSENTE',
-            origem: 'SISTEMA', // Origem automática!
+            origem: 'SISTEMA',
+            data: dataUnica
           });
-          faltasRegistradas++;
         }
       }
     }
 
-    console.log(`🤖 [CRON JOB] Varredura concluída. ${faltasRegistradas} faltas registradas.`);
+    // 5. BULK INSERT: Salva todas as 400 faltas de uma vez só! (Query 3)
+    if (faltasParaInserir.length > 0) {
+      await prisma.presenca.createMany({
+        data: faltasParaInserir,
+        skipDuplicates: true // Segurança máxima do Prisma para não duplicar nada
+      });
+    }
+
+    console.log(`🤖 [CRON JOB] Varredura concluída. ${faltasParaInserir.length} faltas registradas via Bulk Insert.`);
   }
 
   // ==========================================
-  // REGISTRO DE SAÍDA (O método correto)
+  // REGISTRO DE SAÍDA
   // ==========================================
   async registrarSaida(presencaId, novoStatus) {
-    const presencaRepository = require('./presenca.repository');
-    const AppError = require('../../utils/AppError');
-
     // 1. Garante que a presença existe
     const presenca = await presencaRepository.buscarPorId(presencaId);
     if (!presenca) {
@@ -119,10 +149,8 @@ class PresencaService {
       throw new AppError('A saída já foi registrada para este aluno.', 400);
     }
 
-    // 3. Chama o método do Repository que nós já tínhamos criado (e esquecido de usar!)
-    const presencaAtualizada = await presencaRepository.registrarSaida(presencaId, novoStatus);
-
-    return presencaAtualizada;
+    // 3. Atualiza
+    return await presencaRepository.registrarSaida(presencaId, novoStatus);
   }
 }
 

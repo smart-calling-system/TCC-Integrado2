@@ -29,7 +29,7 @@ class AuthService {
 
     // 2. Trava de segurança: Usuário inativo não entra!
     if (!usuario.ativo) {
-      throw new AppError('Esta conta foi desativada. Procure a administração.', 403); // 403 = Forbidden
+      throw new AppError('Esta conta foi desativada. Procure a administração.', 403);
     }
 
     // 3. Verifica a senha uma única vez
@@ -76,11 +76,31 @@ class AuthService {
     }
   }
 
-  // Adicionando um logout limpo para o controller não quebrar (Correção 5.5)
-  async logout() {
-    // Sem escrever no disco!
-    // Numa arquitetura stateless (JWT), o front-end simplesmente apaga o token da tela do celular/navegador.
-    return { message: 'Logout processado com sucesso. Token invalidado no cliente.' };
+  // Logout persistido no Banco via Prisma
+  async logout(token) {
+    if (!token) return;
+
+    const decoded = jwt.decode(token);
+
+    if (decoded && decoded.exp) {
+      const expiresAt = new Date(decoded.exp * 1000);
+
+      try {
+        await prisma.jwtBlacklist.create({
+          data: {
+            token,
+            expiresAt
+          }
+        });
+      } catch (error) {
+        // Se o token já tiver sido deslogado anteriormente (erro de Unique constraint P2002), ignora suavemente
+        if (error.code !== 'P2002') {
+          throw error;
+        }
+      }
+    }
+
+    return { message: 'Logout realizado com sucesso.' };
   }
 }
 
