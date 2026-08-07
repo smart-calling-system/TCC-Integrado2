@@ -11,6 +11,7 @@ router.use(authenticate);
 router.use(authorize([ROLES.ADMIN, ROLES.SECRETARIA, ROLES.COZINHA]));
 
 // Endpoints exatamente como o Claude pediu
+router.get('/mensal', authorize(['ADMIN', 'SECRETARIA', 'DIRETORIA']), relatorioController.getRelatorioMensal);
 router.get('/cozinha', relatorioController.getCozinha);
 router.get('/secretaria/ausentes', relatorioController.getAusentes);
 router.get('/secretaria/baixa-frequencia', relatorioController.getBaixaFrequencia);

@@ -14,4 +14,7 @@ router.post('/refresh', authController.refresh);
 // Agora a rota conhece o middleware de proteção!
 router.post('/logout', authenticate, authController.logout);
 
+// 👇 NOVA ROTA: Retorna os dados do usuário atualmente logado
+router.get('/me', authenticate, authController.me);
+
 module.exports = router;

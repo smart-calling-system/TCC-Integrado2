@@ -30,6 +30,38 @@ class AuthController {
     }
   }
 
+  // Adicione isso junto aos métodos de login, logout e refresh
+  async me(req, res, next) {
+    try {
+      // O Prisma é chamado para buscar os dados frescos no banco
+      const prisma = require('../../database/client'); 
+      const usuarioId = req.usuario.id;
+
+      const usuario = await prisma.usuario.findUnique({
+        where: { id: usuarioId },
+        select: {
+          id: true,
+          nome: true,
+          email: true,
+          role: true,
+          ativo: true
+          // 🔒 A senha ficou de fora de propósito!
+        }
+      });
+
+      if (!usuario) {
+        return res.status(404).json({ status: 'error', message: 'Usuário não encontrado.' });
+      }
+
+      return res.status(200).json({
+        status: 'success',
+        data: usuario
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
   async logout(req, res, next) {
     try {
       const authHeader = req.headers.authorization;

@@ -5,6 +5,8 @@ const presencaService = require('../modules/presencas/presenca.service');
 const relatorioService = require('../modules/relatorios/relatorio.service');
 
 const iniciarCronJobs = () => {
+  // Configuração global para garantir o fuso horário de Brasília (resolve alerta do auditor)
+  const cronOptions = { timezone: 'America/Sao_Paulo' };
 
   // 1. FALTAS AUTOMÁTICAS: Todo dia útil (Seg-Sex) às 23h00
   cron.schedule('0 23 * * 1-5', async () => {
@@ -14,7 +16,7 @@ const iniciarCronJobs = () => {
     } catch (error) {
       logger.error('🚨 [CRON] Erro nas faltas automáticas: ' + error.message);
     }
-  });
+  }, cronOptions);
 
   // 2. RELATÓRIO DA COZINHA: Todo dia útil (Seg-Sex) às 06h00
   cron.schedule('0 6 * * 1-5', async () => {
@@ -27,7 +29,7 @@ const iniciarCronJobs = () => {
     } catch (error) {
       logger.error('🚨 [CRON] Erro no relatório da cozinha: ' + error.message);
     }
-  });
+  }, cronOptions);
 
   // 3. ALERTA DE BAIXA FREQUÊNCIA: Toda Sexta-feira às 18h00
   cron.schedule('0 18 * * 5', async () => {
@@ -41,25 +43,30 @@ const iniciarCronJobs = () => {
     } catch (error) {
       logger.error('🚨 [CRON] Erro no alerta semanal: ' + error.message);
     }
-  });
+  }, cronOptions);
 
   // 4. RELATÓRIO MENSAL CONSOLIDADO: Todo dia 28 às 08h00
   cron.schedule('0 8 28 * *', async () => {
     try {
+      logger.info('🤖 [CRON] Iniciando Job: Geração de Relatório Mensal Consolidado...');
+      
+      // Agora o Cron realmente gera o relatório antes de mandar o e-mail!
+      const relatorio = await relatorioService.gerarRelatorioMensal();
+      logger.info(`🤖 [CRON] Consolidação do Mês de ${relatorio.mes} gerada com sucesso.`);
+
       await enviarEmail('diretoria.lorena@sp.senai.br', '📊 Fechamento Mensal de Frequência', 'O relatório consolidado do mês já está disponível no painel administrativo para exportação em PDF/CSV.');
       logger.info('🤖 [CRON] Aviso de relatório mensal enviado.');
     } catch (error) {
       logger.error('🚨 [CRON] Erro no aviso mensal: ' + error.message);
     }
-  });
+  }, cronOptions);
 
   // 5. LIMPEZA DE LOGS DE AUDITORIA: Todo dia 1º do mês às 04h00 da manhã
   cron.schedule('0 4 1 * *', async () => {
     try {
       const dayjs = require('dayjs');
-      const prisma = require('../../database/client'); // Caminho do banco para deletar direto
+      const prisma = require('../../database/client'); 
       
-      // Calcula a data de 3 meses atrás
       const dataLimite = dayjs().subtract(3, 'month').toDate();
       
       const apagados = await prisma.auditLog.deleteMany({
@@ -74,9 +81,9 @@ const iniciarCronJobs = () => {
     } catch (error) {
       logger.error('🚨 [CRON PURGE] Erro ao limpar AuditLogs: ' + error.message);
     }
-  });
+  }, cronOptions);
 
-  logger.info('⏰ [CRON HUB] Todos os agendamentos (Cozinha, Relatórios, Faltas Automáticas e Limpeza de Logs) ativados.');
+  logger.info('⏰ [CRON HUB] Todos os agendamentos ativados (Fuso: America/Sao_Paulo).');
 };
 
 module.exports = iniciarCronJobs;

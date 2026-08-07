@@ -1,4 +1,12 @@
 const request = require('supertest');
+
+// 👇 A MÁGICA AQUI: Mockamos o middleware ANTES de carregar o app.js.
+// Isso engana o Express, fazendo-o pular a verificação do JWT e injetando um usuário válido.
+jest.mock('../src/middlewares/authenticate', () => (req, res, next) => {
+  req.usuario = { id: 'fake-admin-123', role: 'ADMIN' }; // Passa pelo 'authorize' se houver
+  next(); 
+});
+
 const app = require('../src/app'); // Caminho para o seu app.js
 const presencaRepository = require('../src/modules/presencas/presenca.repository');
 

@@ -20,6 +20,20 @@ class RelatorioController {
     return res.status(200).json({ status: 'success', data: dados });
   }
 
+  async getRelatorioMensal(req, res, next) {
+    try {
+      // Chama o serviço que o auditor disse que você já tinha pronto
+      const relatorio = await relatorioService.gerarRelatorioMensal();
+      
+      return res.status(200).json({
+        status: 'success',
+        data: relatorio
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
   async getCozinha(req, res, next) {
     try {
       const { data, format } = req.query;

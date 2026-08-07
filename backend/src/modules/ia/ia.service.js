@@ -11,6 +11,20 @@ class IaService {
     const { alunoId, turmaId, faceScore, imagemHash } = data;
 
     const aluno = await alunoService.buscarAlunoPorId(alunoId);
+    
+    // 👇 NOVIDADE: O Leão de Chácara! Verifica se o aluno pertence à turma solicitada
+    if (turmaId) {
+      const matricula = await prisma.turmaAluno.findUnique({
+        where: {
+          alunoId_turmaId: { alunoId, turmaId }
+        }
+      });
+      
+      if (!matricula || !matricula.ativo) {
+        throw new AppError('O aluno reconhecido não está matriculado nesta turma.', 403);
+      }
+    }
+
     const scoreFormatado = faceScore ? (faceScore * 100).toFixed(1) : '0.0';
 
     // 1. Validação de Limiar de Confiança

@@ -9,9 +9,20 @@ class PresencaService {
   async registrarPresencaManual(payload) {
     const { alunoId, turmaId, disciplinaId, status, origem, faceScore } = payload;
 
-    // 1. Valida se o aluno e a turma existem e estão ativos antes de registrar a presença
+    // 1. Valida se o aluno e a turma existem
     await alunoService.buscarAlunoPorId(alunoId);
     await turmaService.buscarTurmaPorId(turmaId);
+
+    // 👇 NOVIDADE: Verifica se o aluno realmente pertence à turma
+    const matricula = await prisma.turmaAluno.findUnique({
+      where: {
+        alunoId_turmaId: { alunoId, turmaId }
+      }
+    });
+
+    if (!matricula || !matricula.ativo) {
+      throw new AppError('Não é possível registrar a presença. O aluno não está matriculado nesta turma.', 403);
+    }
 
     // O início do dia para preencher o novo campo "data" (Trava de unicidade)
     const dataAtual = dayjs().startOf('day').toDate(); 
