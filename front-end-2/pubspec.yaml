@@ -1,0 +1,35 @@
+name: tcc_face
+description: >-
+  Frontend do Sistema de Controle de Presenca Escolar baseado em
+  Reconhecimento Facial. Interface Flutter preparada para API futura,
+  com modo mock isolado e fila offline local.
+publish_to: "none"
+version: 1.0.0+1
+
+environment:
+  sdk: ">=3.9.0 <4.0.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  # Gerenciamento de estado leve, utilizado pelos controllers/providers.
+  provider: ^6.1.2
+
+  # Infraestrutura preparada para futura API. Nao ha chamadas reais nesta etapa.
+  http: ^1.2.2
+
+  # Persistencia local real para fila offline de presencas.
+  sqflite: ^2.3.3+1
+  path: ^1.9.0
+
+  # Icones nativos do Material (cupertino incluso por padrao do template).
+  cupertino_icons: ^1.0.8
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^4.0.0
+
+flutter:
+  uses-material-design: true
