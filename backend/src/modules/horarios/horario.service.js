@@ -1,6 +1,7 @@
 const horarioRepository = require('./horario.repository');
 const dayjs = require('dayjs');
 const AppError = require('../../utils/AppError');
+const prisma = require('../../database/client');
 
 class HorarioService {
   async cadastrarHorario(data) {
@@ -9,6 +10,33 @@ class HorarioService {
 
   async listarTodos() {
     return await horarioRepository.findAll();
+  }
+
+  async buscarAulaAtual(turmaId) {
+    // 🛡️ Proteção de fuso horário ativada! Sempre puxará a hora de Brasília.
+    const dataAtual = agoraBR(); 
+    const diasSemana = ['DOMINGO', 'SEGUNDA', 'TERCA', 'QUARTA', 'QUINTA', 'SEXTA', 'SABADO'];
+    const diaHoje = diasSemana[dataAtual.day()]; // O dayjs usa .day() ao invés de .getDay()
+    
+    // Formata a hora atual no padrão "HH:mm" cravado
+    const horaAtual = dataAtual.format('HH:mm');
+
+    // A consulta ao banco fica onde ela pertence!
+    const aulaAtual = await prisma.horario.findFirst({
+      where: {
+        turmaId,
+        diaSemana: diaHoje,
+        horaInicio: { lte: horaAtual },
+        horaFim: { gte: horaAtual }
+      },
+      include: { disciplina: true }
+    });
+
+    if (!aulaAtual) {
+      throw new AppError('Nenhuma aula acontecendo neste momento para esta turma.', 404);
+    }
+
+    return aulaAtual;
   }
 
   // Adicione isso na classe HorarioService

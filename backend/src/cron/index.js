@@ -73,7 +73,7 @@ const iniciarCronJobs = () => {
   cron.schedule('0 4 1 * *', async () => {
     try {
       const dayjs = require('dayjs');
-      const prisma = require('../../database/client'); 
+      const prisma = require('../database/client'); 
       
       const dataLimite = dayjs().subtract(3, 'month').toDate();
       

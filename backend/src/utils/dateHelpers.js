@@ -1,28 +1,37 @@
 const dayjs = require('dayjs');
+const utc = require('dayjs/plugin/utc');
+const timezone = require('dayjs/plugin/timezone');
+
+// Estende o dayjs com os plugins de fuso horário
+dayjs.extend(utc);
+dayjs.extend(timezone);
+
+// Trava o relógio do servidor no fuso de Brasília, independente de onde o Node.js for hospedado (ex: Render)
+dayjs.tz.setDefault('America/Sao_Paulo');
 
 /**
  * Utilitário para centralizar a manipulação de datas na aplicação.
  */
 class DateHelpers {
   /**
-   * Retorna a data e hora atual.
+   * Retorna a data e hora atual no fuso do Brasil.
    */
   static agora() {
-    return dayjs().toDate();
+    return dayjs.tz().toDate();
   }
 
   /**
-   * Retorna o exato primeiro segundo do dia de hoje (00:00:00).
+   * Retorna o exato primeiro segundo do dia de hoje (00:00:00) no fuso do Brasil.
    */
   static inicioDoDiaAtual() {
-    return dayjs().startOf('day').toDate();
+    return dayjs.tz().startOf('day').toDate();
   }
 
   /**
-   * Retorna o exato último segundo do dia de hoje (23:59:59).
+   * Retorna o exato último segundo do dia de hoje (23:59:59) no fuso do Brasil.
    */
   static fimDoDiaAtual() {
-    return dayjs().endOf('day').toDate();
+    return dayjs.tz().endOf('day').toDate();
   }
 
   /**
@@ -30,7 +39,7 @@ class DateHelpers {
    * Exemplo: '31/12/2026'
    */
   static formatarDataBr(data) {
-    return dayjs(data).format('DD/MM/YYYY');
+    return dayjs.tz(data).format('DD/MM/YYYY');
   }
 
   /**
@@ -38,14 +47,14 @@ class DateHelpers {
    * Exemplo: '31/12/2026 14:30:00'
    */
   static formatarDataHoraBr(data) {
-    return dayjs(data).format('DD/MM/YYYY HH:mm:ss');
+    return dayjs.tz(data).format('DD/MM/YYYY HH:mm:ss');
   }
 
   /**
-   * Retorna a data atual marcando o horário limite da cozinha (10:00 AM).
+   * Retorna a data atual marcando o horário limite da cozinha (10:00 AM) no fuso do Brasil.
    */
   static horarioDeCorteCozinha() {
-    return dayjs().hour(10).minute(0).second(0).toDate();
+    return dayjs.tz().hour(10).minute(0).second(0).toDate();
   }
 }
 

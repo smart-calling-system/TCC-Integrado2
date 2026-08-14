@@ -1,11 +1,21 @@
 const prisma = require('../../database/client');
 const dayjs = require('dayjs');
+
+// 👇 CORREÇÃO DO BUG MÉDIO: Travando o fuso horário para evitar faltas no dia errado no Render!
+const utc = require('dayjs/plugin/utc');
+const timezone = require('dayjs/plugin/timezone');
+dayjs.extend(utc);
+dayjs.extend(timezone);
+dayjs.tz.setDefault('America/Sao_Paulo');
+
 const alunoService = require('../alunos/aluno.service'); // Para reaproveitar a matemática de frequência
 
 class RelatorioService {
-  // 1. Relatório da Cozinha (Refutando o Claude: O turno vem da relação com a Turma!)
+  
+  // 1. Relatório da Cozinha
   async previsaoCozinha(dataRef) {
-    const dataBusca = dataRef ? dayjs(dataRef) : dayjs();
+    // 👇 Agora sempre usa o horário oficial de Brasília
+    const dataBusca = dataRef ? dayjs(dataRef).tz('America/Sao_Paulo') : dayjs().tz('America/Sao_Paulo');
     const inicioDoDia = dataBusca.startOf('day').toDate();
     const fimDoDia = dataBusca.endOf('day').toDate();
 
@@ -32,7 +42,7 @@ class RelatorioService {
 
   // 2. Lista de Ausentes por Dia e Turma
   async listarAusentes(turmaId, dataRef) {
-    const dataBusca = dataRef ? dayjs(dataRef) : dayjs();
+    const dataBusca = dataRef ? dayjs(dataRef).tz('America/Sao_Paulo') : dayjs().tz('America/Sao_Paulo');
     const inicioDoDia = dataBusca.startOf('day').toDate();
     const fimDoDia = dataBusca.endOf('day').toDate();
 
@@ -117,6 +127,37 @@ class RelatorioService {
     }
 
     return alunosEmRisco.sort((a, b) => a.frequencia - b.frequencia);
+  }
+
+  // 👇 O CHEFÃO FINAL: 4. Fechamento Mensal Consolidado
+  async gerarRelatorioMensal() {
+    // Pega exatamente o mês atual no fuso de Brasília
+    const hoje = dayjs().tz('America/Sao_Paulo');
+    const inicioDoMes = hoje.startOf('month').toDate();
+    const fimDoMes = hoje.endOf('month').toDate();
+
+    // Consolida todos os status do mês inteiro em 1 query super rápida
+    const contagens = await prisma.presenca.groupBy({
+      by: ['status'],
+      where: {
+        dataHora: { gte: inicioDoMes, lte: fimDoMes }
+      },
+      _count: { _all: true }
+    });
+
+    const resumo = { PRESENTE: 0, AUSENTE: 0, JUSTIFICADO: 0, ATRASO: 0, SAIDA_ANTECIPADA: 0, TOTAL: 0 };
+    
+    contagens.forEach(item => {
+      resumo[item.status] = item._count._all;
+      resumo.TOTAL += item._count._all;
+    });
+
+    return {
+      mes: hoje.format('MM/YYYY'),
+      inicio: inicioDoMes,
+      fim: fimDoMes,
+      estatisticas: resumo
+    };
   }
 }
 

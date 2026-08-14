@@ -35,7 +35,8 @@ class JustificativaService {
     ]);
 
     // 3. O RASTRO DE AUDITORIA (A LGPD agindo!)
-    auditService.registrarLog({
+    // O await aqui é importante para garantir que o log seja salvo corretamente
+    await auditService.registrar({
       usuarioId: usuarioLogadoId,
       acao: 'UPDATE',
       entidade: 'Presenca_Justificada',
@@ -48,16 +49,20 @@ class JustificativaService {
   }
 
   async listarPendentes() {
-    const prisma = require('../../database/client');
+    // 👇 O PRISMA JÁ TÁ NO TOPO, NÃO PRECISA CHAMAR DE NOVO
     return await prisma.justificativa.findMany({
-      where: { status: 'PENDENTE' },
-      include: { 
-        presenca: { include: { aluno: true } } // Traz o nome do aluno junto pra ficar top no Front
+      where: { 
+        aprovadoPor: null // 👇 Substituímos o "status: 'PENDENTE'". Se tá nulo, ninguém aprovou ainda!
       },
-      orderBy: { dataCriacao: 'desc' }
+      include: { 
+        // 👇 Trouxe a turma junto com o aluno pra tela do front ficar ainda mais completa
+        presenca: { include: { aluno: true, turma: true } } 
+      },
+      orderBy: { 
+        criadoEm: 'desc' // 👇 Substituímos o "dataCriacao" pelo campo real do banco!
+      }
     });
   }
-  
 }
 
 module.exports = new JustificativaService();

@@ -22,5 +22,6 @@ router.post('/:id/foto', authorize([ROLES.ADMIN, ROLES.SECRETARIA]), upload.sing
 router.post('/', authorize([ROLES.ADMIN, ROLES.SECRETARIA]), validate(createAlunoSchema), alunoController.create);
 router.patch('/:id', authorize([ROLES.ADMIN, ROLES.SECRETARIA]), validate(updateAlunoSchema), alunoController.update);
 router.delete('/:id', authorize([ROLES.ADMIN, ROLES.SECRETARIA]), alunoController.delete);
+router.delete('/:id/lgpd', authorize([ROLES.ADMIN]), alunoController.exclusaoLGPD);
 
 module.exports = router;

@@ -39,6 +39,20 @@ class UsuarioController {
       next(error);
     }
   }
+
+  async delete(req, res, next) {
+    try {
+      const { id } = req.params;
+      const usuarioLogadoId = req.usuario.id; // Pega o ID de quem está mandando apagar
+      
+      // Passa a responsabilidade pro Service
+      await usuarioService.deletarUsuario(id, usuarioLogadoId);
+      
+      return res.status(204).send(); // 204 = No Content (Apagado com sucesso e sem retorno de dados)
+    } catch (error) {
+      next(error);
+    }
+  }
   
 }
 

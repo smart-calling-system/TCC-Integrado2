@@ -186,48 +186,39 @@ class PresencaRepository {
   // SYNC OFFLINE: REFEITO COM BULK INSERT 🚀
   // ==========================================
   async sincronizarBatchOffline(lotePresencas) {
-    if (!lotePresencas || lotePresencas.length === 0) {
-      return { inseridos: 0, ignorados: 0, erros: 0 };
-    }
+    let sucesso = 0;
+    let falha = 0;
 
-    try {
-      // 1. Prepara todos os dados em memória usando o map (rápido!)
-      const payloadPrisma = lotePresencas.map((item) => {
-        // Usa o dayjs para garantir que estamos lidando com a data certinha
-        const dataRegistro = item.dataHora ? dayjs(item.dataHora) : dayjs();
-
-        return {
-          alunoId: item.alunoId,
-          turmaId: item.turmaId,
-          disciplinaId: item.disciplinaId || null,
-          status: item.status || 'PRESENTE',
+    // 👇 Usando upsert isolado. Se a FK estiver errada, falha só uma, mas salva o resto!
+    const operacoes = lotePresencas.map(p => {
+      return prisma.presenca.upsert({
+        where: {
+          aluno_turma_data_unica: {
+            alunoId: p.alunoId,
+            turmaId: p.turmaId,
+            data: new Date(p.dataHora) 
+          }
+        },
+        update: {}, // Idempotência: não faz nada se a presença já estiver registrada
+        create: {
+          alunoId: p.alunoId,
+          turmaId: p.turmaId,
           origem: 'OFFLINE',
-          faceScore: item.faceScore || null,
-          dataHora: dataRegistro.toDate(), // Mantém a hora exata da batida
-          data: dataRegistro.startOf('day').toDate() // NOVA COLUNA DA TRAVA DE UNICIDADE
-        };
+          dataHora: new Date(p.dataHora),
+          data: new Date(p.dataHora)
+        }
       });
+    });
 
-      // 2. Faz o Insert em Lote de uma só vez (Apenas 1 consulta ao banco!)
-      // O skipDuplicates: true resolve todos os conflitos automaticamente
-      const resultado = await prisma.presenca.createMany({
-        data: payloadPrisma,
-        skipDuplicates: true 
-      });
+    // Roda tudo em paralelo. O que der erro, a gente joga pro contador de falhas.
+    const resultados = await Promise.allSettled(operacoes);
+    
+    resultados.forEach(res => {
+      if (res.status === 'fulfilled') sucesso++;
+      else falha++;
+    });
 
-      // 3. Calcula as métricas matemáticas
-      const inseridos = resultado.count;
-      const ignorados = lotePresencas.length - inseridos;
-
-      return {
-        inseridos,
-        ignorados,
-        erros: 0
-      };
-    } catch (err) {
-      console.error('🚨 Erro ao sincronizar lote offline:', err.message);
-      throw err; // Deixa o erro subir pro Controller tratar no next(error)
-    }
+    return { sucesso, falha, total: lotePresencas.length };
   }
 }
 

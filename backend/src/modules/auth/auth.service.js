@@ -76,6 +76,23 @@ class AuthService {
     }
   }
 
+  // Adicione dentro do seu AuthService:
+  async obterPerfil(usuarioId) {
+    const AppError = require('../../utils/AppError');
+    const authRepository = require('./auth.repository');
+
+    // 👇 Usando o repositório que estava abandonado!
+    const usuario = await authRepository.findById(usuarioId);
+
+    if (!usuario) {
+      throw new AppError('Usuário não encontrado.', 404);
+    }
+
+    // Removendo a senha da resposta por segurança
+    const { senha, ...dadosSeguros } = usuario;
+    return dadosSeguros;
+  }
+
   // Logout persistido no Banco via Prisma
   async logout(token) {
     if (!token) return;

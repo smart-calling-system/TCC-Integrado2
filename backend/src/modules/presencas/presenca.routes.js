@@ -6,6 +6,7 @@ const authorize = require('../../middlewares/authorize');
 const validate = require('../../middlewares/validate');
 const { registrarPresencaSchema } = require('../../validators/presenca.validator');
 const ROLES = require('../../constants/roles');
+const presencaValidator = require('../../validators/presenca.validator');
 
 const router = Router();
 
@@ -26,14 +27,8 @@ router.post('/',
 // ----------------------------------------------------
 // 🔥 AS DUAS ROTAS NOVAS AQUI! (Sync e Saída)
 // ----------------------------------------------------
-router.post('/batch', authorize([ROLES.ADMIN, ROLES.PROFESSOR]), presencaController.sincronizarBatch);
+router.post('/batch', authorize([ROLES.PROFESSOR, ROLES.ADMIN]), validate(presencaValidator.batchSchema), presencaController.sincronizarBatch);
 router.patch('/:id/saida', authorize([ROLES.ADMIN, ROLES.SECRETARIA]), presencaController.registrarSaida);
 
-// Justificativa
-router.post(
-  '/:presencaId/justificar', 
-  authorize([ROLES.ADMIN, ROLES.SECRETARIA]), 
-  justificativaController.create
-);
 
 module.exports = router;

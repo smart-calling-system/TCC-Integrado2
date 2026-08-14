@@ -160,13 +160,13 @@ async function main() {
     });
   }
 
-  console.log('✅ Grade de horários inserida com sucesso!\n');
-  console.log('🎉 Tudo pronto! O banco de dados está populado e preparado para a apresentação do TCC.');
+  console.log(' Grade de horários inserida com sucesso!\n');
+  console.log(' Tudo pronto! O banco de dados está populado e preparado para a apresentação do TCC.');
 }
 
 main()
   .catch((e) => {
-    console.error('🚨 Erro ao rodar o seed:', e);
+    console.error('Erro ao rodar o seed:', e);
     process.exit(1);
   })
   .finally(async () => {

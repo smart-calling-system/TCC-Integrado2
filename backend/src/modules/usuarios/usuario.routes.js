@@ -19,5 +19,6 @@ router.patch(
   authorize([ROLES.ADMIN]), 
   usuarioController.update
 );
+router.delete('/:id', authorize([ROLES.ADMIN]), usuarioController.delete);
 
 module.exports = router;

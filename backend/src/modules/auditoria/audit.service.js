@@ -26,7 +26,7 @@ class AuditService {
     const prisma = require('../../database/client');
     return await prisma.auditLog.findMany({
       where: filtros,
-      orderBy: { dataHora: 'desc' },
+      orderBy: { criadoEm: 'desc' },
       take: 100 // Limite seguro para não explodir o banco
     });
   }

@@ -1,3 +1,4 @@
+const AppError = require('../../utils/AppError');
 const alunoService = require('./aluno.service');
 
 class AlunoController {
@@ -16,17 +17,24 @@ class AlunoController {
   async uploadFoto(req, res, next) {
     try {
       const { id } = req.params;
-      
       if (!req.file) {
-        throw new AppError('Nenhuma imagem enviada na requisição.', 400);
+        // Agora o AppError existe e vai devolver o erro 400 certinho
+        throw new AppError('Nenhuma imagem enviada na requisição.', 400); 
       }
-
       const resultado = await alunoService.uploadFotoTreinamento(id, req.file);
+      return res.status(200).json({ status: 'success', data: resultado });
+    } catch (error) {
+      next(error);
+    }
+  }
 
+  async exclusaoLGPD(req, res, next) {
+    try {
+      const { id } = req.params;
+      await alunoService.exclusaoDefinitivaLGPD(id);
       return res.status(200).json({
         status: 'success',
-        message: 'Foto validada e sincronizada com a IA com sucesso.',
-        data: resultado
+        message: 'Dados do aluno foram apagados permanentemente conforme Art. 18 VI LGPD.'
       });
     } catch (error) {
       next(error);
