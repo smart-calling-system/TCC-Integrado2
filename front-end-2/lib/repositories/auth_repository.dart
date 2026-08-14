@@ -1,11 +1,13 @@
 import '../core/session/session_manager.dart';
 import '../core/session/session_state.dart';
-import '../data/mock/mock_auth_data_source.dart';
+import '../data/api/api_auth_data_source.dart';
+import '../data/auth_data_source.dart'; // Adicionado para garantir que a interface seja reconhecida
 import '../models/usuario.dart';
 
 class AuthRepository {
   AuthRepository({AuthDataSource? dataSource, SessionManager? sessionManager})
-    : _dataSource = dataSource ?? MockAuthDataSource(),
+    // 👇 AQUI ESTÁ A MÁGICA! Adeus ilusão, olá backend real!
+    : _dataSource = dataSource ?? ApiAuthDataSource(),
       _sessionManager = sessionManager ?? SessionManager();
 
   final AuthDataSource _dataSource;

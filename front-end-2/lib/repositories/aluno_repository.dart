@@ -1,9 +1,12 @@
-import '../data/mock/mock_school_data_sources.dart';
+// 👇 1. Apagamos o import do Mock e trazemos o da API Real
+import '../data/api/api_aluno_data_source.dart';
+import '../data/aluno_data_source.dart'; // Adicionado para garantir o reconhecimento da interface
 import '../models/aluno.dart';
 
 class AlunoRepository {
   AlunoRepository({AlunoDataSource? dataSource})
-    : _dataSource = dataSource ?? MockAlunoDataSource();
+    // 👇 2. AQUI ACONTECE A MÁGICA! Conectando o app no seu Backend!
+    : _dataSource = dataSource ?? ApiAlunoDataSource();
 
   final AlunoDataSource _dataSource;
 

@@ -1,9 +1,12 @@
-import '../data/mock/mock_school_data_sources.dart';
+// 👇 1. Limpando os rastros do Mock e importando a API verdadeira
+import '../data/api/api_turma_data_source.dart';
+import '../data/turma_data_source.dart'; // Interface garantida
 import '../models/turma.dart';
 
 class TurmaRepository {
   TurmaRepository({TurmaDataSource? dataSource})
-    : _dataSource = dataSource ?? MockTurmaDataSource();
+    // 👇 2. A MÁGICA CONTINUA! App 100% plugado no Backend!
+    : _dataSource = dataSource ?? ApiTurmaDataSource();
 
   final TurmaDataSource _dataSource;
 
