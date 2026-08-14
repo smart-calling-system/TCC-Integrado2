@@ -1,14 +1,13 @@
-// 👇 1. Apagamos o import do Mock e trazemos o da API Real
 import '../data/api/api_aluno_data_source.dart';
-import '../data/aluno_data_source.dart'; // Adicionado para garantir o reconhecimento da interface
 import '../models/aluno.dart';
 
 class AlunoRepository {
-  AlunoRepository({AlunoDataSource? dataSource})
-    // 👇 2. AQUI ACONTECE A MÁGICA! Conectando o app no seu Backend!
+  // 👇 1. Mudou aqui dentro do parênteses
+  AlunoRepository({ApiAlunoDataSource? dataSource})
     : _dataSource = dataSource ?? ApiAlunoDataSource();
 
-  final AlunoDataSource _dataSource;
+  // 👇 2. Mudou aqui na declaração final
+  final ApiAlunoDataSource _dataSource;
 
   Future<List<Aluno>> listar({String? busca, String? turma}) =>
       _dataSource.listar(busca: busca, turma: turma);

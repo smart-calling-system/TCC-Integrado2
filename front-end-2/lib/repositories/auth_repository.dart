@@ -1,16 +1,16 @@
 import '../core/session/session_manager.dart';
 import '../core/session/session_state.dart';
 import '../data/api/api_auth_data_source.dart';
-import '../data/auth_data_source.dart'; // Adicionado para garantir que a interface seja reconhecida
 import '../models/usuario.dart';
 
 class AuthRepository {
-  AuthRepository({AuthDataSource? dataSource, SessionManager? sessionManager})
-    // 👇 AQUI ESTÁ A MÁGICA! Adeus ilusão, olá backend real!
+  // 👇 1. Mudou aqui dentro do parênteses
+  AuthRepository({ApiAuthDataSource? dataSource, SessionManager? sessionManager})
     : _dataSource = dataSource ?? ApiAuthDataSource(),
       _sessionManager = sessionManager ?? SessionManager();
 
-  final AuthDataSource _dataSource;
+  // 👇 2. Mudou aqui na declaração final
+  final ApiAuthDataSource _dataSource;
   final SessionManager _sessionManager;
 
   Future<Usuario> login(String email, String senha) async {

@@ -1,14 +1,13 @@
-// 👇 1. Adeus, dados falsos! Trazendo a conexão com a API real:
 import '../data/api/api_disciplina_data_source.dart';
-import '../data/disciplina_data_source.dart'; // Interface garantida
 import '../models/disciplina.dart';
 
 class DisciplinaRepository {
-  DisciplinaRepository({DisciplinaDataSource? dataSource})
-    // 👇 2. A MÁGICA FINALIZADA! Tudo conectado no Node.js!
+  // 👇 1. Mudou aqui dentro do parênteses
+  DisciplinaRepository({ApiDisciplinaDataSource? dataSource})
     : _dataSource = dataSource ?? ApiDisciplinaDataSource();
 
-  final DisciplinaDataSource _dataSource;
+  // 👇 2. Mudou aqui na declaração final
+  final ApiDisciplinaDataSource _dataSource;
 
   Future<List<Disciplina>> listar({String? busca}) =>
       _dataSource.listar(busca: busca);

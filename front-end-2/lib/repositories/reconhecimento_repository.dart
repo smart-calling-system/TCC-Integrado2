@@ -1,22 +1,22 @@
 import '../data/local/sync_queue_data_source.dart';
 import '../data/local/sync_queue_factory.dart';
-// 👇 1. Expulsando o Mock e trazendo a interface e a API real
 import '../data/api/api_recognition_data_source.dart';
-import '../data/recognition_data_source.dart'; 
+// O import fantasma que estava aqui em cima foi apagado!
 import '../models/aluno.dart';
 import '../models/sync_queue_item.dart';
 
 class ReconhecimentoRepository {
   ReconhecimentoRepository({
-    RecognitionDataSource? recognitionDataSource,
+    // 👇 1. Trocamos o tipo aqui
+    ApiRecognitionDataSource? recognitionDataSource,
     SyncQueueDataSource? syncQueueDataSource,
   }) : _recognitionDataSource =
-           // 👇 2. A MÁGICA SUPREMA! Conectado com a IA e o Backend!
            recognitionDataSource ?? ApiRecognitionDataSource(),
        _syncQueueDataSource =
            syncQueueDataSource ?? createDefaultSyncQueueDataSource();
 
-  final RecognitionDataSource _recognitionDataSource;
+  // 👇 2. Trocamos o tipo aqui na variável
+  final ApiRecognitionDataSource _recognitionDataSource;
   final SyncQueueDataSource _syncQueueDataSource;
 
   Future<Aluno> reconhecerAluno() async {
@@ -33,7 +33,6 @@ class ReconhecimentoRepository {
           'status': 'PRESENTE',
           'origem': 'FACIAL',
           'dataHoraLocal': now.toIso8601String(),
-          // 👇 3. Mensagem atualizada: adeus modo mock, olá produção!
           'observacao':
               'Registro local criado offline via app. turmaId será resolvido na sincronização.',
         },

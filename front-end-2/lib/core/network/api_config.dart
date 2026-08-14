@@ -5,10 +5,7 @@ class ApiConfig {
     'API_INTEGRATION_ENABLED',
   );
 
-  static const String baseUrl = String.fromEnvironment(
-    'API_BASE_URL',
-    defaultValue: 'http://localhost:3000',
-  );
+  static const String baseUrl = 'http://10.133.101.12:3000/api/v1';
 
   static const String apiPrefix = '/api/v1';
 

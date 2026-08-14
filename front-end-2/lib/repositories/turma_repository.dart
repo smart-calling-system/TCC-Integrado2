@@ -1,14 +1,13 @@
-// 👇 1. Limpando os rastros do Mock e importando a API verdadeira
 import '../data/api/api_turma_data_source.dart';
-import '../data/turma_data_source.dart'; // Interface garantida
 import '../models/turma.dart';
 
 class TurmaRepository {
-  TurmaRepository({TurmaDataSource? dataSource})
-    // 👇 2. A MÁGICA CONTINUA! App 100% plugado no Backend!
+  // 👇 1. Mudou aqui dentro do parênteses
+  TurmaRepository({ApiTurmaDataSource? dataSource})
     : _dataSource = dataSource ?? ApiTurmaDataSource();
 
-  final TurmaDataSource _dataSource;
+  // 👇 2. Mudou aqui na declaração final
+  final ApiTurmaDataSource _dataSource;
 
   Future<List<Turma>> listar({String? busca}) =>
       _dataSource.listar(busca: busca);

@@ -1,15 +1,14 @@
-// 👇 1. Apagando o rastro do mock e trazendo os arquivos da API real
 import '../data/api/api_escola_data_source.dart';
-import '../data/escola_data_source.dart'; // Interface garantida
 import '../models/horario.dart';
 import '../models/notificacao.dart';
 
 class EscolaRepository {
-  EscolaRepository({EscolaDataSource? dataSource})
-    // 👇 2. A MÁGICA CONTINUA! App 100% plugado no Backend!
+  // 👇 1. Mudou aqui dentro do parênteses
+  EscolaRepository({ApiEscolaDataSource? dataSource})
     : _dataSource = dataSource ?? ApiEscolaDataSource();
 
-  final EscolaDataSource _dataSource;
+  // 👇 2. Mudou aqui na declaração final
+  final ApiEscolaDataSource _dataSource;
 
   Future<Horario> buscarProximaAula() => _dataSource.buscarProximaAula();
 

@@ -7,11 +7,10 @@ import '../../core/constants/app_strings.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/utils/responsive.dart';
 import '../../providers/auth_provider.dart';
-import '../../repositories/auth_repository.dart';
 import '../../routes/app_routes.dart';
 import '../../widgets/app_button.dart';
 
-/// Tela de Login — autenticação (fake) do usuário.
+/// Tela de Login — autenticação do usuário.
 class LoginScreen extends StatelessWidget {
   const LoginScreen({super.key});
 
@@ -152,31 +151,6 @@ class _LoginView extends StatelessWidget {
                     label: AppStrings.entrar,
                     loading: controller.carregando,
                     onPressed: () => _entrar(context),
-                  ),
-                  const SizedBox(height: 20),
-                  Container(
-                    padding: const EdgeInsets.all(14),
-                    decoration: BoxDecoration(
-                      color: AppColors.primarySoft,
-                      borderRadius: BorderRadius.circular(14),
-                    ),
-                    child: Row(
-                      children: [
-                        const Icon(
-                          Icons.info_outline,
-                          color: AppColors.primary,
-                          size: 20,
-                        ),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: Text(
-                            'Demonstração: ${AuthRepository.emailDemo} / '
-                            '${AuthRepository.senhaDemo}',
-                            style: textTheme.bodySmall,
-                          ),
-                        ),
-                      ],
-                    ),
                   ),
                   const SizedBox(height: 24),
                 ],
