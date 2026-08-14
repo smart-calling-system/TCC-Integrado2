@@ -1,9 +1,12 @@
-import '../data/mock/mock_school_data_sources.dart';
+// 👇 1. Adeus, dados falsos! Trazendo a conexão com a API real:
+import '../data/api/api_disciplina_data_source.dart';
+import '../data/disciplina_data_source.dart'; // Interface garantida
 import '../models/disciplina.dart';
 
 class DisciplinaRepository {
   DisciplinaRepository({DisciplinaDataSource? dataSource})
-    : _dataSource = dataSource ?? MockDisciplinaDataSource();
+    // 👇 2. A MÁGICA FINALIZADA! Tudo conectado no Node.js!
+    : _dataSource = dataSource ?? ApiDisciplinaDataSource();
 
   final DisciplinaDataSource _dataSource;
 
