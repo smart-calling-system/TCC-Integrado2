@@ -58,6 +58,12 @@ enum DiaSemana {
   SABADO
 }
 
+enum StatusJustificativa {
+  PENDENTE
+  APROVADO
+  REJEITADO
+}
+
 enum AcaoAudit {
   CREATE
   UPDATE
@@ -199,14 +205,15 @@ model Presenca {
 }
 
 model Justificativa {
-  id          String   @id @default(uuid())
-  presencaId  String   @unique @map("presenca_id") 
+  id          String              @id @default(uuid())
+  presencaId  String              @unique @map("presenca_id") 
   motivo      String   
-  anexoUrl    String?  @map("anexo_url") 
-  aprovadoPor String?  @map("aprovado_por") 
-  criadoEm    DateTime @default(now()) @map("criado_em")
+  anexoUrl    String?             @map("anexo_url") 
+  aprovadoPor String?             @map("aprovado_por") 
+  status      StatusJustificativa @default(PENDENTE) // 👇 O campo que a auditoria cobrou!
+  criadoEm    DateTime            @default(now()) @map("criado_em")
 
-  presenca    Presenca @relation(fields: [presencaId], references: [id], onDelete: Cascade)
+  presenca    Presenca            @relation(fields: [presencaId], references: [id], onDelete: Cascade)
 
   @@map("justificativas")
 }
