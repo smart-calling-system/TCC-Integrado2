@@ -1,13 +1,12 @@
+import 'dart:io';
 import '../data/local/sync_queue_data_source.dart';
 import '../data/local/sync_queue_factory.dart';
 import '../data/api/api_recognition_data_source.dart';
-// O import fantasma que estava aqui em cima foi apagado!
 import '../models/aluno.dart';
 import '../models/sync_queue_item.dart';
 
 class ReconhecimentoRepository {
   ReconhecimentoRepository({
-    // 👇 1. Trocamos o tipo aqui
     ApiRecognitionDataSource? recognitionDataSource,
     SyncQueueDataSource? syncQueueDataSource,
   }) : _recognitionDataSource =
@@ -15,12 +14,13 @@ class ReconhecimentoRepository {
        _syncQueueDataSource =
            syncQueueDataSource ?? createDefaultSyncQueueDataSource();
 
-  // 👇 2. Trocamos o tipo aqui na variável
   final ApiRecognitionDataSource _recognitionDataSource;
   final SyncQueueDataSource _syncQueueDataSource;
 
-  Future<Aluno> reconhecerAluno() async {
-    final aluno = await _recognitionDataSource.reconhecerAluno();
+  // 👇 Exige a foto e repassa para o DataSource
+  Future<Aluno> reconhecerAluno(File foto) async {
+    final aluno = await _recognitionDataSource.reconhecerAluno(foto);
+    
     final now = DateTime.now();
     await _syncQueueDataSource.enqueue(
       SyncQueueItem(

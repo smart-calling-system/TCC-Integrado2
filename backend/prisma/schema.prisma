@@ -117,39 +117,42 @@ model Aluno {
 }
 
 model Turma {
-  id         String       @id @default(uuid())
-  nome       String
-  anoLetivo  Int          @map("ano_letivo")
-  turno      Turno        @default(MANHA)
-  ativo      Boolean      @default(true)
-  criadoEm   DateTime     @default(now()) @map("criado_em")
+  id        String       @id @default(uuid())
+  nome      String
+  anoLetivo Int          @map("ano_letivo")
+  turno     Turno        @default(MANHA)
+  sala      String?      // 👇 Adicionado para alinhar com o Flutter
+  ativo     Boolean      @default(true)
+  criadoEm  DateTime     @default(now()) @map("criado_em")
   
-  alunos     TurmaAluno[]
-  presencas  Presenca[]
-  horarios   Horario[]    
-  iaLogs     IaLog[]      
-  alertas    Alerta[]
+  alunos    TurmaAluno[]
+  presencas Presenca[]
+  horarios  Horario[]    
+  iaLogs    IaLog[]      
+  alertas   Alerta[]
   
   @@map("turmas")
 }
 
 model TurmaAluno {
-  alunoId  String  @map("aluno_id")
-  turmaId  String  @map("turma_id")
-  ativo    Boolean @default(true)
+  alunoId String  @map("aluno_id")
+  turmaId String  @map("turma_id")
+  ativo   Boolean @default(true)
   
-  aluno    Aluno   @relation(fields: [alunoId], references: [id], onDelete: Cascade)
-  turma    Turma   @relation(fields: [turmaId], references: [id], onDelete: Cascade)
+  aluno   Aluno   @relation(fields: [alunoId], references: [id], onDelete: Cascade)
+  turma   Turma   @relation(fields: [turmaId], references: [id], onDelete: Cascade)
 
   @@id([alunoId, turmaId])
   @@map("turmas_alunos")
 }
 
 model Disciplina {
-  id        String     @id @default(uuid())
-  nome      String
-  codigo    String     @unique
-  ativo     Boolean    @default(true)
+  id           String     @id @default(uuid())
+  nome         String
+  codigo       String     @unique
+  professor    String?    // 👇 Adicionado para alinhar com o Flutter
+  cargaHoraria Int?       @map("carga_horaria") // 👇 Adicionado para alinhar com o Flutter
+  ativo        Boolean    @default(true)
   
   presencas Presenca[]
   horarios  Horario[]  
@@ -199,8 +202,8 @@ model Presenca {
   
   // Índices para busca rápida (performance)
   @@index([alunoId, data]) 
-  @@index([turmaId, dataHora]) // 👇 Adicionado para otimizar os relatórios
-  @@index([status])            // 👇 Adicionado para otimizar os relatórios
+  @@index([turmaId, dataHora])
+  @@index([status])            
   @@map("presencas")
 }
 
@@ -210,7 +213,7 @@ model Justificativa {
   motivo      String   
   anexoUrl    String?             @map("anexo_url") 
   aprovadoPor String?             @map("aprovado_por") 
-  status      StatusJustificativa @default(PENDENTE) // 👇 O campo que a auditoria cobrou!
+  status      StatusJustificativa @default(PENDENTE)
   criadoEm    DateTime            @default(now()) @map("criado_em")
 
   presenca    Presenca            @relation(fields: [presencaId], references: [id], onDelete: Cascade)
@@ -231,7 +234,6 @@ model IaLog {
   aluno      Aluno?      @relation(fields: [alunoId], references: [id], onDelete: SetNull)
   turma      Turma?      @relation(fields: [turmaId], references: [id], onDelete: SetNull)
 
-  // ÍNDICES ADICIONADOS PARA PERFORMANCE
   @@index([alunoId])
   @@index([turmaId])
   @@map("ia_logs")
@@ -248,7 +250,6 @@ model Alerta {
   aluno     Aluno    @relation(fields: [alunoId], references: [id], onDelete: Cascade)
   turma     Turma?   @relation(fields: [turmaId], references: [id], onDelete: Cascade) 
 
-  // ÍNDICE ADICIONADO PARA PERFORMANCE
   @@index([alunoId])
   @@map("alertas")
 }
@@ -266,8 +267,7 @@ model AuditLog {
 
   usuario      Usuario?  @relation(fields: [usuarioId], references: [id], onDelete: SetNull)
 
-  // ÍNDICES ADICIONADOS PARA PERFORMANCE
   @@index([usuarioId])
-  @@index([criadoEm]) // Útil para o Cron Job de limpeza
+  @@index([criadoEm]) 
   @@map("audit_logs")
 }

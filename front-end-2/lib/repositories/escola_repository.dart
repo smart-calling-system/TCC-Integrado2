@@ -3,14 +3,14 @@ import '../models/horario.dart';
 import '../models/notificacao.dart';
 
 class EscolaRepository {
-  // 👇 1. Mudou aqui dentro do parênteses
   EscolaRepository({ApiEscolaDataSource? dataSource})
     : _dataSource = dataSource ?? ApiEscolaDataSource();
 
-  // 👇 2. Mudou aqui na declaração final
   final ApiEscolaDataSource _dataSource;
 
-  Future<Horario> buscarProximaAula() => _dataSource.buscarProximaAula();
+  // 👇 Exigindo e repassando o ID da Turma
+  Future<Horario> buscarProximaAula(String turmaId) => 
+      _dataSource.buscarProximaAula(turmaId);
 
   Future<List<Notificacao>> buscarNotificacoes() =>
       _dataSource.listarNotificacoes();

@@ -4,14 +4,18 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 
 import '../errors/app_exception.dart';
+import '../session/session_manager.dart'; // 👇 1. Importando o gerenciador de sessão
 import 'api_config.dart';
 import 'api_exception.dart';
 
 class ApiClient {
-  ApiClient({http.Client? httpClient})
-    : _httpClient = httpClient ?? http.Client();
+  ApiClient({http.Client? httpClient, SessionManager? sessionManager})
+    : _httpClient = httpClient ?? http.Client(),
+      // 👇 2. Instanciando o gerenciador para acessar o Token salvo
+      _sessionManager = sessionManager ?? SessionManager();
 
   final http.Client _httpClient;
+  final SessionManager _sessionManager;
 
   Future<Map<String, dynamic>> get(
     String endpoint, {
@@ -48,10 +52,14 @@ class ApiClient {
       );
     }
 
+    // 👇 3. A MÁGICA DA AUDITORIA: Usa o token passado manualmente OU busca automaticamente da sessão!
+    final token = accessToken ?? _sessionManager.state?.accessToken;
+
     final headers = <String, String>{
       'Accept': 'application/json',
       'Content-Type': 'application/json',
-      if (accessToken != null) 'Authorization': 'Bearer $accessToken',
+      // 👇 4. Injetando o JWT automaticamente em todas as requisições protegidas!
+      if (token != null && token.isNotEmpty) 'Authorization': 'Bearer $token',
     };
 
     try {

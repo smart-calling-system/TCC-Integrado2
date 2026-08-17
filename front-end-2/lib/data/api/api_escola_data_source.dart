@@ -5,8 +5,9 @@ import '../../models/notificacao.dart';
 class ApiEscolaDataSource {
   final ApiClient _apiClient = ApiClient();
 
-  Future<Horario> buscarProximaAula() async {
-    final res = await _apiClient.get('/horarios/agora');
+  Future<Horario> buscarProximaAula(String turmaId) async {
+    // 👇 Rota corrigida para enviar o ID da turma que o backend pede!
+    final res = await _apiClient.get('/horarios/turma/$turmaId/agora');
     return Horario.fromJson(res['data']);
   }
 

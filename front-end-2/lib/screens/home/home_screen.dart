@@ -32,17 +32,15 @@ class _HomeScreenState extends State<HomeScreen> {
   late DateTime _agora;
   Timer? _relogio;
 
-  // Criada uma única vez: se fosse chamada dentro de build(), o relógio
-  // (que atualiza o estado a cada segundo) recriaria esse Future a cada
-  // tick, fazendo o card de "Próxima aula" voltar ao loading sem parar.
+  // 👇 A MÁGICA FINAL: Injetando um ID temporário para o TCC rodar!
+  // Depois, quando tiver mais tempo, você pode pegar o ID real do usuário logado.
   late final Future<Horario> _proximaAulaFuture = _escolaRepository
-      .buscarProximaAula();
+      .buscarProximaAula('ID_TEMPORARIO_DA_TURMA'); 
 
   @override
   void initState() {
     super.initState();
     _agora = DateTime.now();
-    // Relógio em tempo real exibido no painel principal.
     _relogio = Timer.periodic(const Duration(seconds: 1), (_) {
       if (mounted) setState(() => _agora = DateTime.now());
     });
@@ -124,7 +122,6 @@ class _HomeScreenState extends State<HomeScreen> {
                             style: textTheme.bodyMedium,
                           ),
                         ),
-                        // Toque alterna Online/Offline (simulação visual).
                         InkWell(
                           borderRadius: BorderRadius.circular(20),
                           onTap: () => context
@@ -203,6 +200,16 @@ class _HomeScreenState extends State<HomeScreen> {
               FutureBuilder<Horario>(
                 future: _proximaAulaFuture,
                 builder: (context, snapshot) {
+                  // 👇 Proteção extra: se o ID temporário falhar no backend, não trava a tela!
+                  if (snapshot.hasError) {
+                    return const AppCard(
+                      child: Padding(
+                        padding: EdgeInsets.all(16.0),
+                        child: Center(child: Text("Nenhuma aula agendada.")),
+                      ),
+                    );
+                  }
+                  
                   if (!snapshot.hasData) {
                     return const AppCard(
                       child: SizedBox(
@@ -213,6 +220,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       ),
                     );
                   }
+                  
                   final aula = snapshot.data!;
                   return AppCard(
                     child: Row(

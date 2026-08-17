@@ -93,6 +93,34 @@ class AuthService {
     return dadosSeguros;
   }
 
+  // 👇 1. Simulação do envio de e-mail (Salva horas de TCC)
+  async recuperarSenha(email) {
+    console.log(`[SISTEMA] Simulação: E-mail de redefinição solicitado para: ${email}`);
+    return true; 
+  }
+
+  // 👇 2. Troca de senha real com criptografia
+  async trocarSenha(usuarioId, senhaAtual, novaSenha) {
+    const bcrypt = require('bcrypt'); // ou bcryptjs, dependendo do que usou
+    const prisma = require('../../database/client');
+
+    const usuario = await prisma.usuario.findUnique({ where: { id: usuarioId } });
+    if (!usuario) throw new Error('Usuário não encontrado');
+
+    const senhaValida = await bcrypt.compare(senhaAtual, usuario.senha);
+    if (!senhaValida) {
+      throw new Error('Senha atual incorreta');
+    }
+
+    const novaSenhaHash = await bcrypt.hash(novaSenha, 10);
+    await prisma.usuario.update({
+      where: { id: usuarioId },
+      data: { senha: novaSenhaHash }
+    });
+    
+    return true;
+  }
+
   // Logout persistido no Banco via Prisma
   async logout(token) {
     if (!token) return;

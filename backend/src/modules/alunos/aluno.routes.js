@@ -12,6 +12,9 @@ const router = Router();
 // Garante que o usuário está logado
 router.use(authenticate);
 
+// 👇 Coloque ANTES do router.get('/:id' ...)
+router.get('/check-ra/:ra', authenticate, alunoController.checkRa.bind(alunoController));
+
 // 👇 ROTAS BLINDADAS: Apenas Admin, Secretaria e Professor podem listar e ver dados de alunos
 router.get('/', authorize([ROLES.ADMIN, ROLES.SECRETARIA, ROLES.PROFESSOR]), alunoController.getAll);
 router.get('/:id', authorize([ROLES.ADMIN, ROLES.SECRETARIA, ROLES.PROFESSOR]), alunoController.getById);

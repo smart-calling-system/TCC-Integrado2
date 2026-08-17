@@ -1,6 +1,6 @@
+import 'dart:io'; // 👇 Import obrigatório para a variável File
 import 'package:flutter/material.dart';
 
-import '../core/errors/recognition_exception.dart';
 import '../models/aluno.dart';
 import '../repositories/reconhecimento_repository.dart';
 
@@ -8,9 +8,6 @@ import '../repositories/reconhecimento_repository.dart';
 enum EstadoReconhecimento { aguardando, processando, sucesso, erro }
 
 /// Controller da tela de Reconhecimento Facial.
-///
-/// Orquestra a simulação: aguardando -> processando (loading) ->
-/// sucesso ou erro. A tela apenas reage às mudanças de estado.
 class RecognitionController extends ChangeNotifier {
   RecognitionController({ReconhecimentoRepository? repository})
     : _repository = repository ?? ReconhecimentoRepository();
@@ -26,18 +23,20 @@ class RecognitionController extends ChangeNotifier {
   DateTime? get horarioRegistro => _horarioRegistro;
   bool get processando => _estado == EstadoReconhecimento.processando;
 
-  /// Executa a simulação do reconhecimento e retorna `true` em sucesso.
-  Future<bool> simularReconhecimento() async {
+  // 👇 1. A MÁGICA: O método agora obriga a tela a enviar a foto tirada!
+  Future<bool> simularReconhecimento(File foto) async {
     _estado = EstadoReconhecimento.processando;
     notifyListeners();
 
     try {
-      _alunoReconhecido = await _repository.reconhecerAluno();
+      // 👇 2. Repassando a foto de verdade para a IA
+      _alunoReconhecido = await _repository.reconhecerAluno(foto);
       _horarioRegistro = DateTime.now();
       _estado = EstadoReconhecimento.sucesso;
       notifyListeners();
       return true;
-    } on FaceNaoReconhecidaException {
+    } catch (e) {
+      // 👇 3. Capturando erros reais da API e do Node.js
       _estado = EstadoReconhecimento.erro;
       notifyListeners();
       return false;

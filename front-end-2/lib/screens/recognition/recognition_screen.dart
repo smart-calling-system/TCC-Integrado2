@@ -1,3 +1,4 @@
+import 'dart:io'; // 👇 Import necessário para o arquivo fantasma
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -30,7 +31,13 @@ class _RecognitionView extends StatelessWidget {
 
   Future<void> _simular(BuildContext context) async {
     final controller = context.read<RecognitionController>();
-    final sucesso = await controller.simularReconhecimento();
+    
+    // 👇 A MÁGICA SALVADORA: Criamos um arquivo falso só pro Flutter compilar.
+    // Depois, para o TCC ficar 100%, você pode usar o pacote 'image_picker' 
+    // para trocar esse arquivo fantasma pela câmera real do celular!
+    final arquivoFantasma = File('foto_fake.jpg');
+    
+    final sucesso = await controller.simularReconhecimento(arquivoFantasma);
     if (!context.mounted) return;
 
     if (sucesso) {

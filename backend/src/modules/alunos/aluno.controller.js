@@ -41,6 +41,22 @@ class AlunoController {
     }
   }
 
+  async checkRa(req, res, next) {
+    try {
+      const prisma = require('../../database/client');
+      const { ra } = req.params;
+      
+      const aluno = await prisma.aluno.findUnique({
+        where: { matricula: ra }
+      });
+      
+      // Se achou o aluno, retorna true. Se não achou, retorna false.
+      res.status(200).json({ data: { existe: !!aluno } });
+    } catch (error) {
+      next(error);
+    }
+  }
+
   async getAll(req, res, next) {
     try {
       const pagina = parseInt(req.query.page, 10) || 1;

@@ -41,6 +41,27 @@ class AuthController {
     }
   }
 
+  async recuperarSenha(req, res, next) {
+    try {
+      const { email } = req.body;
+      await authService.recuperarSenha(email);
+      res.status(200).json({ message: 'Se o e-mail existir, as instruções foram enviadas.' });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async trocarSenha(req, res, next) {
+    try {
+      const { senhaAtual, novaSenha } = req.body;
+      const usuarioId = req.user.id; // O ID vem do token injetado pelo seu middleware
+      await authService.trocarSenha(usuarioId, senhaAtual, novaSenha);
+      res.status(200).json({ message: 'Senha atualizada com sucesso!' });
+    } catch (error) {
+      next(error);
+    }
+  }
+
   async logout(req, res, next) {
     try {
       const authHeader = req.headers.authorization;
