@@ -9,18 +9,23 @@ const upload = require('../../middlewares/upload');
 
 const router = Router();
 
-// Garante que o usuário está logado
+// 👇 ROTA LIVRE PARA O FLUTTER: Colocamos ACIMA do cadeado e tiramos o authorize!
+router.get('/', alunoController.getAll);
+
+// =========================================================================
+// 🔒 DAQUI PRA BAIXO O CADEADO FECHA! TODAS AS ROTAS EXIGEM LOGIN (TOKEN)
+// =========================================================================
 router.use(authenticate);
 
-// 👇 Coloque ANTES do router.get('/:id' ...)
+// Coloque ANTES do router.get('/:id' ...)
 router.get('/check-ra/:ra', authenticate, alunoController.checkRa.bind(alunoController));
 
-// 👇 ROTAS BLINDADAS: Apenas Admin, Secretaria e Professor podem listar e ver dados de alunos
-router.get('/', authorize([ROLES.ADMIN, ROLES.SECRETARIA, ROLES.PROFESSOR]), alunoController.getAll);
+// 👇 ROTAS BLINDADAS: Apenas Admin, Secretaria e Professor podem ver dados específicos e alterar
 router.get('/:id', authorize([ROLES.ADMIN, ROLES.SECRETARIA, ROLES.PROFESSOR]), alunoController.getById);
 router.get('/:id/frequencia', authorize([ROLES.ADMIN, ROLES.SECRETARIA, ROLES.PROFESSOR]), alunoController.getFrequencia);
 router.get('/:id/frequencia/disciplinas', authorize([ROLES.ADMIN, ROLES.SECRETARIA, ROLES.PROFESSOR]), alunoController.getFrequenciaDisciplinas);
 router.post('/:id/foto', authorize([ROLES.ADMIN, ROLES.SECRETARIA]), upload.single('foto'), alunoController.uploadFoto);
+
 // Aqui entram os validadores do Zod ANTES do controller
 router.post('/', authorize([ROLES.ADMIN, ROLES.SECRETARIA]), validate(createAlunoSchema), alunoController.create);
 router.patch('/:id', authorize([ROLES.ADMIN, ROLES.SECRETARIA]), validate(updateAlunoSchema), alunoController.update);

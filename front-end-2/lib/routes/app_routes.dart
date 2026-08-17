@@ -22,6 +22,7 @@ import '../screens/splash/splash_screen.dart';
 import '../screens/sync/sync_screen.dart';
 import '../screens/turmas/turma_form_screen.dart';
 import '../screens/turmas/turma_list_screen.dart';
+import '../screens/recognition/vincular_aluno_screen.dart';
 
 /// Rotas nomeadas do aplicativo.
 ///
@@ -49,6 +50,7 @@ class AppRoutes {
   static const String sincronizacao = '/sincronizacao';
   static const String configuracoes = '/configuracoes';
   static const String perfil = '/perfil';
+  static const String vincularAluno = '/vincular-aluno';
 
   static Route<dynamic> onGenerateRoute(RouteSettings settings) {
     switch (settings.name) {
@@ -62,6 +64,11 @@ class AppRoutes {
         return _fade(const DashboardScreen(), settings);
       case home:
         return _fade(const HomeScreen(), settings);
+      case vincularAluno:
+        return MaterialPageRoute(
+          builder: (_) => const VincularAlunoScreen(),
+          settings: settings, 
+        );
       case alunos:
         return _slide(const AlunoListScreen(), settings);
       case alunoForm:

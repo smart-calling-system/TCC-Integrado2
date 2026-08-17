@@ -25,7 +25,9 @@ dependencies:
 
   # Icones nativos do Material (cupertino incluso por padrao do template).
   cupertino_icons: ^1.0.8
-  image_picker: ^1.2.2
+  
+  # 👇 AQUI ESTÁ A MÁGICA: Câmera na versão estável blindada contra o Gradle 9!
+  camera: 0.10.5+9
 
 dev_dependencies:
   flutter_test:

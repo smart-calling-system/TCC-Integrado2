@@ -12,6 +12,7 @@ import json
 import logging
 import requests
 import io
+from PIL import Image, ImageOps  # 👇 A BLINDAGEM DO LUKA AQUI
 from uuid import UUID
 from dotenv import load_dotenv
 
@@ -63,7 +64,6 @@ app.add_middleware(
 # INTEGRAÇÃO COM O BACKEND NODE DO NEIL
 # ============================================================
 
-
 def normalizar_node_api_url(url: str) -> str:
     """
     Aceita tanto:
@@ -79,7 +79,6 @@ def normalizar_node_api_url(url: str) -> str:
         url = f"{url}/api/v1"
     return url
 
-
 NODE_API_URL = normalizar_node_api_url(
     os.getenv("NODE_API_URL", "http://localhost:3000")
 )
@@ -87,7 +86,6 @@ IA_API_KEY = (os.getenv("IA_API_KEY") or "").strip()
 NODE_TIMEOUT_SEGUNDOS = float(os.getenv("NODE_TIMEOUT_SEGUNDOS", "10"))
 
 # O backend do Neil usa 0.85 por padrão. O score abaixo é NORMALIZADO:
-# qualquer rosto que passou pela tolerância local recebe score entre esse mínimo e 1.0.
 NODE_MIN_FACE_SCORE = float(os.getenv("NODE_MIN_FACE_SCORE", "0.85"))
 NODE_MIN_FACE_SCORE = max(0.0, min(1.0, NODE_MIN_FACE_SCORE))
 
@@ -98,19 +96,13 @@ NODE_MIN_FACE_SCORE = max(0.0, min(1.0, NODE_MIN_FACE_SCORE))
 rostos_conhecidos_encodings = []
 rostos_conhecidos_nomes = []
 
-# Quanto menor, mais rigoroso o reconhecimento.
 TOLERANCIA_RECONHECIMENTO = float(os.getenv("FACE_TOLERANCE", "0.46"))
-
-# Diferença mínima entre o melhor aluno e o segundo melhor aluno.
 MARGEM_MINIMA_CONFIANCA = float(os.getenv("FACE_MARGIN", "0.05"))
-
 NUM_JITTERS_CADASTRO = int(os.getenv("FACE_NUM_JITTERS", "1"))
-
 
 # ============================================================
 # MAPEAMENTO ALUNO -> UUIDs DO POSTGRES
 # ============================================================
-
 
 def carregar_mapeamento():
     if not os.path.exists(CAMINHO_MAPEAMENTO):
@@ -125,7 +117,6 @@ def carregar_mapeamento():
         logger.error("Erro ao carregar mapeamento_alunos.json: %s", erro)
         return {}
 
-
 def uuid_valido(valor) -> bool:
     try:
         UUID(str(valor))
@@ -133,9 +124,7 @@ def uuid_valido(valor) -> bool:
     except (ValueError, TypeError, AttributeError):
         return False
 
-
 def obter_mapeamento_aluno(nome_aluno):
-    # Recarrega a cada reconhecimento para permitir trocar UUIDs sem reiniciar a API.
     mapeamento = carregar_mapeamento()
     info = mapeamento.get(nome_aluno)
 
@@ -156,11 +145,9 @@ def obter_mapeamento_aluno(nome_aluno):
 
     return {"alunoId": aluno_id, "turmaId": turma_id}, None
 
-
 # ============================================================
 # BANCO FACIAL LOCAL
 # ============================================================
-
 
 def carregar_banco_local():
     rostos_conhecidos_encodings.clear()
@@ -203,19 +190,15 @@ def carregar_banco_local():
 
     logger.info("Banco facial carregado: %s fotos.", len(rostos_conhecidos_nomes))
 
-
 carregar_banco_local()
-
 
 # ============================================================
 # ROTAS DE STATUS / INTERFACE LOCAL
 # ============================================================
 
-
 @app.get("/", response_class=HTMLResponse)
 async def interface_teste(request: Request):
     return templates.TemplateResponse(request=request, name="index.html")
-
 
 @app.get("/health")
 async def health_check():
@@ -229,7 +212,6 @@ async def health_check():
         "node_api_url": NODE_API_URL,
         "ia_api_key_configurada": bool(IA_API_KEY),
     }
-
 
 @app.get("/health/node")
 def health_node():
@@ -262,11 +244,9 @@ def health_node():
             "mensagem": f"Não foi possível conectar ao backend Node: {erro}"
         }
 
-
 # ============================================================
 # CADASTRO FACIAL
 # ============================================================
-
 
 def limpar_fotos_parciais(nome_aluno):
     try:
@@ -277,12 +257,10 @@ def limpar_fotos_parciais(nome_aluno):
     except Exception as erro:
         logger.warning("Erro ao limpar fotos parciais: %s", erro)
 
-
 def checar_nitidez(imagem_bgr, limite=80.0):
     cinza = cv2.cvtColor(imagem_bgr, cv2.COLOR_BGR2GRAY)
     variancia = cv2.Laplacian(cinza, cv2.CV_64F).var()
     return variancia >= limite
-
 
 @app.post("/cadastrar")
 async def cadastrar_aluno(
@@ -369,11 +347,9 @@ async def cadastrar_aluno(
         limpar_fotos_parciais(nome_limpo)
         return {"status": "erro", "mensagem": f"Erro no servidor: {erro}"}
 
-
 # ============================================================
 # RECONHECIMENTO FACIAL
 # ============================================================
-
 
 def calcular_face_score(distancia):
     """
@@ -387,7 +363,6 @@ def calcular_face_score(distancia):
     score = NODE_MIN_FACE_SCORE + qualidade_relativa * (1.0 - NODE_MIN_FACE_SCORE)
     return round(max(0.0, min(1.0, score)), 4)
 
-
 def extrair_mensagem_backend(corpo, fallback):
     if isinstance(corpo, dict):
         return (
@@ -398,9 +373,8 @@ def extrair_mensagem_backend(corpo, fallback):
         )
     return fallback
 
-
 def registrar_presenca_no_node(nome_aluno, distancia):
-    """Envia o reconhecimento validado para o backend Node do Neil."""
+    """Envia o reconhecimento validado para o backend Node."""
     info, erro_mapeamento = obter_mapeamento_aluno(nome_aluno)
 
     if erro_mapeamento:
@@ -496,7 +470,6 @@ def registrar_presenca_no_node(nome_aluno, distancia):
             "faceScore": face_score,
             "mensagem": "O backend demorou demais para responder. Tente novamente."
         }
-
     except requests.exceptions.ConnectionError as erro:
         logger.error("Falha de conexão com Node: %s", erro)
         return {
@@ -506,7 +479,6 @@ def registrar_presenca_no_node(nome_aluno, distancia):
             "faceScore": face_score,
             "mensagem": "Não foi possível conectar ao backend Node."
         }
-
     except requests.exceptions.RequestException as erro:
         logger.exception("Erro HTTP ao falar com Node: %s", erro)
         return {
@@ -517,12 +489,37 @@ def registrar_presenca_no_node(nome_aluno, distancia):
             "mensagem": f"Falha ao comunicar com o backend: {erro}"
         }
 
-
 def reconhecer_face_com_rgb(imagem_rgb):
     """
     Função dedicada para processar o array RGB já normalizado e contíguo.
+    Com blindagem contra fotos deitadas enviadas pelo sensor de tablets!
     """
+    # Tenta achar o rosto na imagem como ela chegou
     locais = face_recognition.face_locations(imagem_rgb)
+
+    # 👇 BLINDAGEM LUKA: Se não achou, a foto do tablet pode estar deitada em 90 graus!
+    if not locais:
+        logger.info("Nenhum rosto achado na posição original. Tentando girar a foto...")
+        
+        # Tenta girar 90 graus (retrato normal se o tablet mandou paisagem)
+        img_90 = cv2.rotate(imagem_rgb, cv2.ROTATE_90_CLOCKWISE)
+        locais = face_recognition.face_locations(img_90)
+        
+        if locais:
+            imagem_rgb = img_90
+            logger.info("Rosto encontrado após girar 90 graus (Horário)!")
+        else:
+            # Se ainda não achou, tenta girar pro outro lado
+            img_270 = cv2.rotate(imagem_rgb, cv2.ROTATE_90_COUNTERCLOCKWISE)
+            locais = face_recognition.face_locations(img_270)
+            if locais:
+                imagem_rgb = img_270
+                logger.info("Rosto encontrado após girar 90 graus (Anti-Horário)!")
+
+    # Retorna vazio se mesmo girando não achou ninguém (provavelmente não tem ninguem na frente)
+    if not locais:
+        return None, None
+
     encodings = face_recognition.face_encodings(imagem_rgb, locais)
 
     if len(encodings) != 1:
@@ -565,7 +562,6 @@ def reconhecer_face_com_rgb(imagem_rgb):
 
     return melhor_nome, melhor_distancia
 
-
 @app.post("/reconhecer")
 async def reconhecer_rosto(file: UploadFile = File(...)):
     try:
@@ -579,19 +575,39 @@ async def reconhecer_rosto(file: UploadFile = File(...)):
                 "mensagem": "Arquivo de imagem vazio."
             }
 
-        # 👇 A SOLUÇÃO DEFINITIVA: O face_recognition / PIL lê os bytes diretamente,
-        # garantindo 100% de compatibilidade com o formato RGB de 8 bits exigido pelo dlib!
-        imagem_rgb = face_recognition.load_image_file(io.BytesIO(conteudo))
+        # 👇 A BLINDAGEM MÁXIMA DO LUKA USANDO PILLOW (PIL)
+        try:
+            # 1. Carrega a imagem direto da memória, bypassando o cv2.imdecode
+            pil_image = Image.open(io.BytesIO(conteudo))
+            
+            # 2. Limpa qualquer rotação oculta (EXIF) que o Android embute e quebra o numpy
+            pil_image = ImageOps.exif_transpose(pil_image)
+            
+            # 3. Força estritamente para o padrão RGB de 8-bits, removendo canais Alpha ou paletas estranhas
+            pil_image = pil_image.convert("RGB")
+            
+            # 4. Converte para matriz do NumPy
+            imagem_rgb = np.array(pil_image)
+            
+            # 5. Redimensiona para não sobrecarregar a IA caso a foto do tablet seja gigantesca
+            altura, largura = imagem_rgb.shape[:2]
+            if largura > 1200:
+                imagem_menor = cv2.resize(imagem_rgb, (largura // 2, altura // 2))
+                imagem_rgb = np.array(imagem_menor)
 
-        # Redimensionamento opcional de segurança para acelerar a leitura no tablet
-        altura, largura = imagem_rgb.shape[:2]
-        if largura > 1200:
-            imagem_rgb = cv2.resize(imagem_rgb, (largura // 2, altura // 2))
+            # 6. O toque final de mestre: forçar o alinhamento da memória para o dlib em C++ aceitar
+            imagem_rgb = np.ascontiguousarray(imagem_rgb, dtype=np.uint8)
 
-        # Garante que o array numpy é contíguo e estritamente uint8
-        imagem_rgb = np.ascontiguousarray(imagem_rgb, dtype=np.uint8)
+        except Exception as e:
+            logger.error(f"Erro ao limpar imagem com PIL: {e}")
+            return {
+                "status": "erro",
+                "reconhecido": False,
+                "presenca_registrada": False,
+                "mensagem": "Formato de imagem ilegível pelo sistema."
+            }
 
-        # Processa o reconhecimento com o array RGB limpo
+        # Chama a função dedicada
         nome, distancia = reconhecer_face_com_rgb(imagem_rgb)
 
         if nome is None:

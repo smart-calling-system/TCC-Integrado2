@@ -21,3 +21,7 @@ process.on('SIGTERM', () => {
     logger.info('Processo finalizado.');
   });
 });
+
+app.listen(3000, '0.0.0.0', () => {
+  console.log('Servidor rodando na rede inteira!');
+});
