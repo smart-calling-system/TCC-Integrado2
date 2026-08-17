@@ -11,6 +11,7 @@ import os
 import json
 import logging
 import requests
+import io
 from uuid import UUID
 from dotenv import load_dotenv
 
@@ -377,12 +378,6 @@ async def cadastrar_aluno(
 def calcular_face_score(distancia):
     """
     O face_recognition fornece DISTÂNCIA, não uma probabilidade de confiança.
-
-    Para o contrato com o backend Node, transformamos a faixa aceita localmente
-    [0, TOLERANCIA_RECONHECIMENTO] em [1.0, NODE_MIN_FACE_SCORE].
-
-    Assim, um rosto que o Python já rejeitaria nunca é enviado ao Node, e um rosto
-    aceito pelo Python chega ao Node com score coerente com o limiar configurado.
     """
     if distancia is None:
         return 0.0
@@ -523,21 +518,13 @@ def registrar_presenca_no_node(nome_aluno, distancia):
         }
 
 
-def reconhecer_face_no_frame(imagem_bgr):
+def reconhecer_face_com_rgb(imagem_rgb):
     """
-    Retorna (nome, distancia) do melhor aluno.
-
-    Importante: cada aluno possui 3 fotos. Primeiro agrupamos as distâncias por
-    NOME e pegamos a melhor foto de cada aluno. Assim, as fotos 1/2/3 da MESMA
-    pessoa não são tratadas como candidatos concorrentes na margem anti-ambiguidade.
+    Função dedicada para processar o array RGB já normalizado e contíguo.
     """
-    imagem_menor = cv2.resize(imagem_bgr, (0, 0), fx=0.25, fy=0.25)
-    imagem_rgb = cv2.cvtColor(imagem_menor, cv2.COLOR_BGR2RGB)
-
     locais = face_recognition.face_locations(imagem_rgb)
     encodings = face_recognition.face_encodings(imagem_rgb, locais)
 
-    # Para chamada, também exigimos exatamente um rosto no frame.
     if len(encodings) != 1:
         return None, None
 
@@ -549,7 +536,6 @@ def reconhecer_face_no_frame(imagem_bgr):
         encodings[0]
     )
 
-    # Melhor distância por ALUNO, e não por FOTO.
     melhor_por_aluno = {}
     for nome, distancia in zip(rostos_conhecidos_nomes, distancias):
         distancia = float(distancia)
@@ -584,18 +570,29 @@ def reconhecer_face_no_frame(imagem_bgr):
 async def reconhecer_rosto(file: UploadFile = File(...)):
     try:
         conteudo = await file.read()
-        nparr = np.frombuffer(conteudo, np.uint8)
-        imagem_bgr = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
 
-        if imagem_bgr is None:
+        if not conteudo:
             return {
                 "status": "erro",
                 "reconhecido": False,
                 "presenca_registrada": False,
-                "mensagem": "Erro ao decodificar a imagem."
+                "mensagem": "Arquivo de imagem vazio."
             }
 
-        nome, distancia = reconhecer_face_no_frame(imagem_bgr)
+        # 👇 A SOLUÇÃO DEFINITIVA: O face_recognition / PIL lê os bytes diretamente,
+        # garantindo 100% de compatibilidade com o formato RGB de 8 bits exigido pelo dlib!
+        imagem_rgb = face_recognition.load_image_file(io.BytesIO(conteudo))
+
+        # Redimensionamento opcional de segurança para acelerar a leitura no tablet
+        altura, largura = imagem_rgb.shape[:2]
+        if largura > 1200:
+            imagem_rgb = cv2.resize(imagem_rgb, (largura // 2, altura // 2))
+
+        # Garante que o array numpy é contíguo e estritamente uint8
+        imagem_rgb = np.ascontiguousarray(imagem_rgb, dtype=np.uint8)
+
+        # Processa o reconhecimento com o array RGB limpo
+        nome, distancia = reconhecer_face_com_rgb(imagem_rgb)
 
         if nome is None:
             if not rostos_conhecidos_encodings:
@@ -637,7 +634,6 @@ async def reconhecer_rosto(file: UploadFile = File(...)):
         dados_evento = dados_evento if isinstance(dados_evento, dict) else {}
         evento = dados_evento.get("status")
 
-        # IGNORADO significa que entrada e saída já foram feitas hoje.
         registro_novo = evento != "IGNORADO"
 
         mensagens_evento = {

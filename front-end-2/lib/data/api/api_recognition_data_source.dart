@@ -6,7 +6,8 @@ import '../../core/network/api_exception.dart'; // 👇 Caminho corrigido!
 import '../../models/aluno.dart';
 
 class ApiRecognitionDataSource {
-  final String _pythonUrl = 'http://10.133.101.12:5000/reconhecer';
+  // 👇 Antes estava .12, agora atualizado para .13
+  final String _pythonUrl = 'http://10.133.101.13:5000/reconhecer';
 
   Future<Aluno> reconhecerAluno(File foto) async {
     try {

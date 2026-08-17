@@ -25,6 +25,7 @@ dependencies:
 
   # Icones nativos do Material (cupertino incluso por padrao do template).
   cupertino_icons: ^1.0.8
+  image_picker: ^1.2.2
 
 dev_dependencies:
   flutter_test:

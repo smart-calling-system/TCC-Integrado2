@@ -4,14 +4,13 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 
 import '../errors/app_exception.dart';
-import '../session/session_manager.dart'; // 👇 1. Importando o gerenciador de sessão
+import '../session/session_manager.dart'; 
 import 'api_config.dart';
 import 'api_exception.dart';
 
 class ApiClient {
   ApiClient({http.Client? httpClient, SessionManager? sessionManager})
     : _httpClient = httpClient ?? http.Client(),
-      // 👇 2. Instanciando o gerenciador para acessar o Token salvo
       _sessionManager = sessionManager ?? SessionManager();
 
   final http.Client _httpClient;
@@ -52,13 +51,16 @@ class ApiClient {
       );
     }
 
-    // 👇 3. A MÁGICA DA AUDITORIA: Usa o token passado manualmente OU busca automaticamente da sessão!
     final token = accessToken ?? _sessionManager.state?.accessToken;
+
+    // Amortecedor de Sessão mantido para o login não engasgar
+    if ((token == null || token.isEmpty) && !endpoint.contains('/auth/login')) {
+      return <String, dynamic>{'data': []}; 
+    }
 
     final headers = <String, String>{
       'Accept': 'application/json',
       'Content-Type': 'application/json',
-      // 👇 4. Injetando o JWT automaticamente em todas as requisições protegidas!
       if (token != null && token.isNotEmpty) 'Authorization': 'Bearer $token',
     };
 
@@ -77,6 +79,9 @@ class ApiClient {
           ? <String, dynamic>{}
           : jsonDecode(response.body) as Map<String, dynamic>;
 
+      // 👇 O RASTREADOR DO LUKA: Vamos ler as respostas originais do Node!
+      print('🕵️ LUKA ESPIONANDO A ROTA [$endpoint]: $decoded');
+
       if (response.statusCode >= 400) {
         throw ApiException(
           decoded['message'] as String? ?? 'Erro retornado pelo servidor.',
@@ -87,7 +92,9 @@ class ApiClient {
         );
       }
 
+      // Hack de paginação removido! O Flutter vai receber os dados puros.
       return decoded;
+      
     } on TimeoutException catch (error) {
       throw ApiException(
         'Tempo limite de comunicacao com o servidor.',

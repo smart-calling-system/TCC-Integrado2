@@ -1,7 +1,9 @@
 const { PrismaClient } = require('@prisma/client');
+const bcrypt = require('bcryptjs'); // 👇 Importando o pacote real apontado na auditoria
 const prisma = new PrismaClient();
-// Um hash genérico para a senha "123456" usando bcrypt (padrão em sistemas node)
-const SENHA_PADRAO = '$2a$12$s.7J/h6jZJ4x3h3G9Z5E..cQhG6L5v8/x8q2Z/0T9Z9Z9Z9Z9Z9Z9'; 
+
+// 👇 A MÁGICA: Gerando o hash REAL e válido dinamicamente! 
+const SENHA_PADRAO = bcrypt.hashSync('123456', 12); 
 
 async function main() {
   console.log('🌱 Iniciando o Super Seed do banco de dados...');
@@ -78,7 +80,7 @@ async function main() {
   for (const prof of professores) {
     await prisma.usuario.upsert({
       where: { email: prof.email },
-      update: { nome: prof.nome },
+      update: { nome: prof.nome, senha: SENHA_PADRAO }, // Força a atualização da senha no banco!
       create: { nome: prof.nome, email: prof.email, senha: SENHA_PADRAO, role: 'PROFESSOR', ativo: true }
     });
   }
@@ -160,8 +162,8 @@ async function main() {
     });
   }
 
-  console.log(' Grade de horários inserida com sucesso!\n');
-  console.log(' Tudo pronto! O banco de dados está populado e preparado para a apresentação do TCC.');
+  console.log('✅ Grade de horários inserida com sucesso!\n');
+  console.log('🚀 Tudo pronto! O banco de dados está populado e preparado para a apresentação do TCC.');
 }
 
 main()
