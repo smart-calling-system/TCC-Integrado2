@@ -29,7 +29,9 @@ dependencies:
   # 👇 AQUI ESTÁ A MÁGICA: Câmera na versão estável blindada contra o Gradle 9!
   camera: 0.10.5+9
   shared_preferences: ^2.5.5
-
+  webview_flutter: ^4.14.1
+  permission_handler: 11.3.1
+  webview_flutter_android: ^4.14.0
 dev_dependencies:
   flutter_test:
     sdk: flutter

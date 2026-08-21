@@ -1,4 +1,9 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    
+    <!-- ✅ OLHA AS PERMISSÕES AQUI! LIVRES, LEVES E SOLTAS FORA DO APPLICATION! -->
+    <uses-permission android:name="android.permission.INTERNET"/>
+    <uses-permission android:name="android.permission.CAMERA"/>
+
     <application
         android:label="tcc_face"
         android:name="${applicationName}"

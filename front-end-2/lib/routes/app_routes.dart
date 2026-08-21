@@ -14,7 +14,8 @@ import '../screens/history/history_screen.dart';
 import '../screens/home/home_screen.dart';
 import '../screens/profile/profile_screen.dart';
 import '../screens/recognition/recognition_error_screen.dart';
-import '../screens/recognition/recognition_screen.dart';
+// 👇 AQUI! Tchau Miguel, Olá Cavalo de Troia (Tela Web do Pietro)!
+import '../screens/recognition/reconhecimento_web_screen.dart';
 import '../screens/recognition/recognition_success_screen.dart';
 import '../screens/relatorios/relatorio_screen.dart';
 import '../screens/settings/settings_screen.dart';
@@ -91,7 +92,8 @@ class AppRoutes {
           settings,
         );
       case reconhecimento:
-        return _slideUp(const RecognitionScreen(), settings);
+        // 👇 AQUI TAMBÉM! Agora o app sabe que tem que abrir a tela web!
+        return _slideUp(const ReconhecimentoWebScreen(), settings);
       case reconhecimentoSucesso:
         return _fade(const RecognitionSuccessScreen(), settings);
       case reconhecimentoErro:

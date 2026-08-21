@@ -1,98 +1,272 @@
-    <!DOCTYPE html>
-    <html lang="pt-BR">
-    <head>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Presença Escolar Inteligente - IA</title>
-        <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
-        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-        <style>
-            @keyframes pulseGlow {
-                0%, 100% { border-color: rgba(99, 102, 241, 0.3); box-shadow: 0 0 15px rgba(99, 102, 241, 0.1); }
-                50% { border-color: rgba(99, 102, 241, 0.6); box-shadow: 0 0 25px rgba(99, 102, 241, 0.25); }
-            }
-            .mask-idle { animation: pulseGlow 3s infinite ease-in-out; }
-        </style>
-    </head>
-    <body class="bg-slate-950 text-slate-100 min-h-screen flex flex-col items-center justify-center p-4 font-sans antialiased selection:bg-indigo-500/30">
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Presença Escolar Inteligente - IA</title>
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        @keyframes pulseGlow {
+            0%, 100% { border-color: rgba(99, 102, 241, 0.3); box-shadow: 0 0 15px rgba(99, 102, 241, 0.1); }
+            50% { border-color: rgba(99, 102, 241, 0.6); box-shadow: 0 0 25px rgba(99, 102, 241, 0.25); }
+        }
+        .mask-idle { animation: pulseGlow 3s infinite ease-in-out; }
+        .fade-in { animation: fadeIn 0.3s ease-out forwards; }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+    </style>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen flex flex-col items-center justify-center p-4 font-sans antialiased selection:bg-indigo-500/30">
+    
+    <div class="max-w-md w-full bg-slate-900/60 rounded-[32px] shadow-[0_25px_50px_-12px_rgba(0,0,0,0.5)] border border-slate-800/50 p-6 text-center backdrop-blur-2xl relative overflow-hidden">
         
-        <div class="max-w-md w-full bg-slate-900/60 rounded-[32px] shadow-[0_25px_50px_-12px_rgba(0,0,0,0.5)] border border-slate-800/50 p-6 text-center backdrop-blur-2xl relative overflow-hidden">
-            
-            <div class="absolute -top-24 -left-24 w-52 h-52 bg-indigo-500/10 rounded-full blur-[80px] pointer-events-none"></div>
-            <div class="absolute -bottom-24 -right-24 w-52 h-52 bg-emerald-500/10 rounded-full blur-[80px] pointer-events-none"></div>
+        <div class="absolute -top-24 -left-24 w-52 h-52 bg-indigo-500/10 rounded-full blur-[80px] pointer-events-none"></div>
+        <div class="absolute -bottom-24 -right-24 w-52 h-52 bg-emerald-500/10 rounded-full blur-[80px] pointer-events-none"></div>
 
-            <div class="mb-6 relative">
-                <div class="inline-flex items-center gap-1.5 bg-indigo-500/10 border border-indigo-500/20 px-3 py-1 rounded-full mb-2">
-                    <span class="w-1.5 h-1.5 bg-indigo-400 rounded-full animate-ping"></span>
-                    <span class="text-[10px] font-bold uppercase tracking-widest text-indigo-400">Sistema Online</span>
-                </div>
-                <h1 class="text-2xl font-black tracking-tight bg-gradient-to-r from-slate-100 via-indigo-200 to-slate-100 bg-clip-text text-transparent">Biometria Facial</h1>
-                <p class="text-xs text-slate-400 mt-1">Módulo de Chamada Rápida</p>
+        <div class="mb-6 relative">
+            <div class="inline-flex items-center gap-1.5 bg-indigo-500/10 border border-indigo-500/20 px-3 py-1 rounded-full mb-2">
+                <span class="w-1.5 h-1.5 bg-indigo-400 rounded-full animate-ping"></span>
+                <span class="text-[10px] font-bold uppercase tracking-widest text-indigo-400">Sistema Online</span>
             </div>
-
-            <div class="flex bg-slate-950/80 p-1.5 rounded-2xl mb-8 border border-slate-800/40 backdrop-blur-md">
-                <button id="tabPresenca" class="flex-1 py-3 rounded-xl text-xs font-bold transition-all duration-300 bg-slate-850 text-indigo-400 shadow-lg shadow-black/20 border border-slate-800/50 cursor-pointer">
-                    <i class="fa-solid fa-user-check mr-2 text-sm"></i>Fazer Chamada
-                </button>
-                <button id="tabCadastro" class="flex-1 py-3 rounded-xl text-xs font-bold transition-all duration-300 text-slate-400 hover:text-slate-200 cursor-pointer">
-                    <i class="fa-solid fa-user-plus mr-2 text-sm"></i>Novo Aluno
-                </button>
-            </div>
-
-            <div class="relative flex flex-col items-center justify-center mb-8">
-                <div id="faceMask" class="w-64 h-64 rounded-full border-4 border-dashed p-1 relative flex items-center justify-center bg-slate-950 shadow-2xl transition-all duration-500 overflow-hidden mask-idle">
-                    <div id="laserLine" class="absolute left-0 right-0 h-0.5 top-0 hidden transition-all duration-300"></div>
-                    
-                    <div class="w-full h-full rounded-full overflow-hidden relative border border-slate-800/30">
-                        <video id="webcam" autoplay playsinline class="w-full h-full object-cover scale-x-[-1] transition-all duration-500"></video>
-                        <canvas id="canvas" class="hidden"></canvas>
-                    </div>
-
-                    <div id="centerIcon" class="absolute inset-0 flex items-center justify-center bg-slate-950/80 rounded-full opacity-0 pointer-events-none transition-all duration-500 scale-90">
-                        <div class="w-16 h-16 rounded-2xl bg-slate-900/50 border border-slate-800 flex items-center justify-center shadow-2xl">
-                            <i id="statusIcon" class="fa-solid fa-face-recognition text-4xl text-indigo-400"></i>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="mt-6 min-h-[48px] flex flex-col items-center justify-center px-4">
-                    <p id="instructionText" class="text-sm font-bold text-slate-200 tracking-wide transition-colors duration-300">Posicione seu rosto dentro do círculo</p>
-                    <p id="subInstructionText" class="text-xs text-slate-500 mt-1 font-medium transition-colors duration-300">Fique imóvel e olhe para a câmera</p>
-                </div>
-            </div>
-
-            <div class="space-y-4 relative z-10">
-                <div id="containerPresenca" class="block">
-                    <button id="btnCapturar" class="w-full bg-gradient-to-r from-indigo-600 to-indigo-500 hover:from-indigo-500 hover:to-indigo-400 active:scale-[0.99] text-white font-bold py-4 px-6 rounded-2xl shadow-xl shadow-indigo-600/10 border border-indigo-500/30 transition-all duration-200 text-sm tracking-wide cursor-pointer">
-                        Iniciar Reconhecimento
-                    </button>
-                </div>
-
-                <div id="containerCadastro" class="hidden space-y-4">
-                    <div class="relative flex items-center group">
-                        <i class="fa-solid fa-user absolute left-4 text-slate-500 text-sm transition-colors group-focus-within:text-emerald-400"></i>
-                        <input type="text" id="nomeAluno" placeholder="Nome Completo do Aluno" class="w-full bg-slate-950/80 border border-slate-800/80 rounded-2xl pl-12 pr-4 py-4 text-slate-100 placeholder-slate-600 focus:outline-none focus:border-emerald-500/50 text-sm uppercase font-semibold tracking-wide">
-                    </div>
-                    <button id="btnCadastrar" class="w-full bg-gradient-to-r from-emerald-600 to-emerald-500 hover:from-emerald-500 hover:to-emerald-400 active:scale-[0.99] text-white font-bold py-4 px-6 rounded-2xl shadow-xl shadow-emerald-600/10 border border-emerald-500/30 transition-all duration-200 text-sm tracking-wide cursor-pointer">
-                        Começar Mapeamento 3D
-                    </button>
-                </div>
-            </div>
-
-            <div id="resultCard" class="mt-6 p-4 rounded-2xl border hidden transform transition-all duration-500 scale-95 opacity-0">
-                <div class="flex items-center gap-4 text-left">
-                    <div id="resultIconBox" class="w-12 h-12 rounded-xl flex items-center justify-center text-xl shadow-inner transition-colors duration-300">
-                        <i id="resultIcon" class="fa-solid fa-circle-notch animate-spin"></i>
-                    </div>
-                    <div class="flex-1">
-                        <p id="resultTitle" class="font-black text-sm tracking-wide"></p>
-                        <p id="resultMsg" class="text-xs text-slate-400 mt-0.5 font-medium"></p>
-                    </div>
-                </div>
-            </div>
-
+            <h1 class="text-2xl font-black tracking-tight bg-gradient-to-r from-slate-100 via-indigo-200 to-slate-100 bg-clip-text text-transparent">Biometria Facial</h1>
+            <p class="text-xs text-slate-400 mt-1">Módulo de Chamada Rápida</p>
         </div>
 
-        <script src="/static/js/app.js"></script>
-    </body>
-    </html>
+        <div class="flex bg-slate-950/80 p-1.5 rounded-2xl mb-8 border border-slate-800/40 backdrop-blur-md">
+            <button id="tabPresenca" class="flex-1 py-3 rounded-xl text-xs font-bold transition-all duration-300 bg-slate-850 text-indigo-400 shadow-lg shadow-black/20 border border-slate-800/50 cursor-pointer">
+                <i class="fa-solid fa-user-check mr-2 text-sm"></i>Fazer Chamada
+            </button>
+            <button id="tabCadastro" class="flex-1 py-3 rounded-xl text-xs font-bold transition-all duration-300 text-slate-400 hover:text-slate-200 cursor-pointer">
+                <i class="fa-solid fa-user-plus mr-2 text-sm"></i>Novo Aluno
+            </button>
+        </div>
+
+        <div class="relative flex flex-col items-center justify-center mb-8">
+            <div id="faceMask" class="w-64 h-64 rounded-full border-4 border-dashed p-1 relative flex items-center justify-center bg-slate-950 shadow-2xl transition-all duration-500 overflow-hidden mask-idle">
+                <div id="laserLine" class="absolute left-0 right-0 h-0.5 top-0 hidden transition-all duration-300"></div>
+                
+                <div class="w-full h-full rounded-full overflow-hidden relative border border-slate-800/30">
+                    <!-- 👇 LUKA AQUI: Adicionei o MUTED pro Android não bloquear a imagem! -->
+                    <video id="webcam" autoplay playsinline muted class="w-full h-full object-cover scale-x-[-1] transition-all duration-500"></video>
+                    <canvas id="canvas" class="hidden"></canvas>
+                </div>
+
+                <div id="centerIcon" class="absolute inset-0 flex items-center justify-center bg-slate-950/80 rounded-full opacity-0 pointer-events-none transition-all duration-500 scale-90">
+                    <div class="w-16 h-16 rounded-2xl bg-slate-900/50 border border-slate-800 flex items-center justify-center shadow-2xl">
+                        <i id="statusIcon" class="fa-solid fa-face-recognition text-4xl text-indigo-400"></i>
+                    </div>
+                </div>
+            </div>
+
+            <div class="mt-6 min-h-[48px] flex flex-col items-center justify-center px-4">
+                <p id="instructionText" class="text-sm font-bold text-slate-200 tracking-wide transition-colors duration-300">Posicione seu rosto dentro do círculo</p>
+                <p id="subInstructionText" class="text-xs text-slate-500 mt-1 font-medium transition-colors duration-300">Fique imóvel e olhe para a câmera</p>
+            </div>
+        </div>
+
+        <div class="space-y-4 relative z-10">
+            <div id="containerPresenca" class="block">
+                <button id="btnCapturar" class="w-full bg-gradient-to-r from-indigo-600 to-indigo-500 hover:from-indigo-500 hover:to-indigo-400 active:scale-[0.99] text-white font-bold py-4 px-6 rounded-2xl shadow-xl shadow-indigo-600/10 border border-indigo-500/30 transition-all duration-200 text-sm tracking-wide cursor-pointer">
+                    Iniciar Reconhecimento
+                </button>
+            </div>
+
+            <div id="containerCadastro" class="hidden space-y-4">
+                <div class="relative flex items-center group">
+                    <i class="fa-solid fa-user absolute left-4 text-slate-500 text-sm transition-colors group-focus-within:text-emerald-400 z-10"></i>
+                    <select id="alunoSelect" class="w-full bg-slate-950/80 border border-slate-800/80 rounded-2xl pl-12 pr-10 py-4 text-slate-100 focus:outline-none focus:border-emerald-500/50 text-sm uppercase font-semibold tracking-wide appearance-none cursor-pointer">
+                        <option value="">SELECIONE UM ALUNO (MOCK)</option>
+                        <option value="1" data-nome="João Silva">João Silva</option>
+                        <option value="2" data-nome="Maria Santos">Maria Santos</option>
+                    </select>
+                    <i class="fa-solid fa-chevron-down absolute right-4 text-slate-500 text-sm pointer-events-none"></i>
+                </div>
+                <button id="btnCadastrar" class="w-full bg-gradient-to-r from-emerald-600 to-emerald-500 hover:from-emerald-500 hover:to-emerald-400 active:scale-[0.99] text-white font-bold py-4 px-6 rounded-2xl shadow-xl shadow-emerald-600/10 border border-emerald-500/30 transition-all duration-200 text-sm tracking-wide cursor-pointer">
+                    Começar Mapeamento 3D
+                </button>
+            </div>
+        </div>
+
+        <div id="resultCard" class="mt-6 p-4 rounded-2xl border hidden transform transition-all duration-500 scale-95 opacity-0">
+            <div class="flex items-center gap-4 text-left">
+                <div id="resultIconBox" class="w-12 h-12 rounded-xl flex items-center justify-center text-xl shadow-inner transition-colors duration-300">
+                    <i id="resultIcon" class="fa-solid fa-circle-notch animate-spin"></i>
+                </div>
+                <div class="flex-1">
+                    <p id="resultTitle" class="font-black text-sm tracking-wide"></p>
+                    <p id="resultMsg" class="text-xs text-slate-400 mt-0.5 font-medium"></p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 👇 LUKA AQUI: Joguei o JS inteiro pra dentro do HTML! Adeus Erro 404! -->
+    <script>
+        const IP_SERVIDOR = '10.133.101.30'; 
+        const NODE_API = `http://${IP_SERVIDOR}:3000/api/v1`;
+        const PYTHON_API = `http://${IP_SERVIDOR}:5000`;
+        const TOKEN = 'COLOQUE_SEU_TOKEN_GERADO_AQUI'; 
+
+        const video = document.getElementById('webcam');
+        const canvas = document.getElementById('canvas');
+        const btnCapturar = document.getElementById('btnCapturar');
+        const btnCadastrar = document.getElementById('btnCadastrar');
+        const alunoSelect = document.getElementById('alunoSelect');
+
+        const tabPresenca = document.getElementById('tabPresenca');
+        const tabCadastro = document.getElementById('tabCadastro');
+        const containerPresenca = document.getElementById('containerPresenca');
+        const containerCadastro = document.getElementById('containerCadastro');
+
+        const faceMask = document.getElementById('faceMask');
+        const laserLine = document.getElementById('laserLine');
+        const centerIcon = document.getElementById('centerIcon');
+        const statusIcon = document.getElementById('statusIcon');
+        const instructionText = document.getElementById('instructionText');
+        const subInstructionText = document.getElementById('subInstructionText');
+
+        const resultCard = document.getElementById('resultCard');
+        const resultTitle = document.getElementById('resultTitle');
+        const resultMsg = document.getElementById('resultMsg');
+        const resultIconBox = document.getElementById('resultIconBox');
+        const resultIcon = document.getElementById('resultIcon');
+
+        // LIGA A WEBCAM
+        navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" } })
+            .then(stream => { 
+                video.srcObject = stream; 
+                // Força o play novamente por garantia
+                video.play().catch(e => console.log("Play barrado:", e));
+            })
+            .catch(err => { 
+                console.error("Erro na webcam:", err); 
+                updateInstructions("Câmera Bloqueada", "Verifique as permissões do app", "erro");
+            });
+
+        function resetGeral() {
+            btnCadastrar.disabled = false;
+            alunoSelect.disabled = false;
+            ocultarPopupResultado();
+            resetFaceMask();
+        }
+
+        tabPresenca.addEventListener('click', () => {
+            resetGeral();
+            tabPresenca.className = "flex-1 py-3 rounded-xl text-xs font-bold transition-all duration-300 bg-slate-850 text-indigo-400 shadow-lg shadow-black/20 border border-slate-800/50 cursor-pointer";
+            tabCadastro.className = "flex-1 py-3 rounded-xl text-xs font-bold transition-all duration-300 text-slate-400 hover:text-slate-200 cursor-pointer";
+            containerPresenca.classList.remove('hidden');
+            containerCadastro.classList.add('hidden');
+            updateInstructions("Posicione seu rosto dentro do círculo", "Fique imóvel e olhe para a câmera");
+        });
+
+        tabCadastro.addEventListener('click', () => {
+            resetGeral();
+            tabCadastro.className = "flex-1 py-3 rounded-xl text-xs font-bold transition-all duration-300 bg-slate-850 text-emerald-400 shadow-lg shadow-black/20 border border-slate-800/50 cursor-pointer";
+            tabPresenca.className = "flex-1 py-3 rounded-xl text-xs font-bold transition-all duration-300 text-slate-400 hover:text-slate-200 cursor-pointer";
+            containerCadastro.classList.remove('hidden');
+            containerPresenca.classList.add('hidden');
+            updateInstructions("Módulo de Cadastro", "Selecione o aluno na lista para iniciar");
+        });
+
+        function updateInstructions(main, sub, status = "") {
+            instructionText.textContent = main;
+            subInstructionText.textContent = sub;
+            if (status === "sucesso") {
+                instructionText.className = "text-sm font-black text-emerald-400 tracking-wide";
+                subInstructionText.className = "text-xs text-emerald-500/80 font-semibold mt-1";
+            } else if (status === "erro") {
+                instructionText.className = "text-sm font-black text-rose-400 tracking-wide";
+                subInstructionText.className = "text-xs text-rose-500/80 font-semibold mt-1";
+            } else if (status === "scan") {
+                instructionText.className = "text-sm font-black text-amber-400 tracking-wide animate-pulse";
+                subInstructionText.className = "text-xs text-amber-500/80 font-semibold mt-1";
+            } else {
+                instructionText.className = "text-sm font-bold text-slate-200 tracking-wide";
+                subInstructionText.className = "text-xs text-slate-500 mt-1 font-medium";
+            }
+        }
+
+        function ativarLaser(cor) {
+            laserLine.classList.remove('hidden');
+            laserLine.className = `absolute left-0 right-0 h-0.5 bg-gradient-to-r from-transparent via-${cor}-400 to-transparent top-0 animate-[bounce_1.5s_infinite]`;
+        }
+
+        function resetFaceMask() {
+            faceMask.className = "w-64 h-64 rounded-full border-4 border-dashed p-1 relative flex items-center justify-center bg-slate-950 shadow-2xl transition-all duration-500 overflow-hidden mask-idle";
+            laserLine.classList.add('hidden');
+            centerIcon.className = "absolute inset-0 flex items-center justify-center bg-slate-950/80 rounded-full opacity-0 pointer-events-none scale-90";
+            video.classList.remove('blur-sm');
+        }
+
+        function exibirPopupResultado(titulo, msg, tipo) {
+            resultCard.classList.remove('hidden');
+            setTimeout(() => resultCard.classList.remove('scale-95', 'opacity-0'), 10);
+            resultTitle.textContent = titulo;
+            resultMsg.textContent = msg;
+            
+            const iconeAlvo = document.getElementById('resultIcon');
+            if (tipo === 'sucesso') {
+                resultCard.className = "mt-6 p-4 rounded-2xl border border-emerald-500/20 bg-emerald-950/20 text-emerald-400 backdrop-blur-xl transition-all duration-500";
+                if (resultIconBox) resultIconBox.className = "w-12 h-12 rounded-xl flex items-center justify-center text-xl shadow-inner bg-emerald-500/10 text-emerald-400";
+                if (iconeAlvo) iconeAlvo.className = "fa-solid fa-circle-check";
+            } else {
+                resultCard.className = "mt-6 p-4 rounded-2xl border border-rose-500/20 bg-rose-950/20 text-rose-400 backdrop-blur-xl transition-all duration-500";
+                if (resultIconBox) resultIconBox.className = "w-12 h-12 rounded-xl flex items-center justify-center text-xl shadow-inner bg-rose-500/10 text-rose-400";
+                if (iconeAlvo) iconeAlvo.className = "fa-solid fa-circle-xmark";
+            }
+        }
+
+        function ocultarPopupResultado() {
+            resultCard.classList.add('scale-95', 'opacity-0');
+            setTimeout(() => resultCard.classList.add('hidden'), 300);
+        }
+
+        const esperar = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
+        // EVENTO DE CHAMADA
+        btnCapturar.addEventListener('click', async () => {
+            resetFaceMask();
+            ativarLaser('indigo');
+            btnCapturar.disabled = true;
+
+            updateInstructions("Reconhecendo...", "Simulando backend...", "scan");
+            
+            // Simulação visual pra você testar na sala de aula
+            await esperar(2000);
+            updateInstructions("Identidade Confirmada", "Presença registrada", "sucesso");
+            exibirPopupResultado("Presença Confirmada", "Aluno validado com sucesso!", "sucesso");
+            btnCapturar.disabled = false;
+        });
+
+        // EVENTO DE CADASTRO
+        btnCadastrar.addEventListener('click', async () => {
+            if (!alunoSelect.value) { 
+                alert("Selecione um aluno da lista primeiro!"); 
+                return; 
+            }
+            
+            btnCadastrar.disabled = true;
+            alunoSelect.disabled = true;
+            ocultarPopupResultado();
+            resetFaceMask();
+
+            faceMask.className = "w-64 h-64 rounded-full border-4 border-solid border-amber-500 p-1 relative flex items-center justify-center bg-slate-950 shadow-[0_0_25px_rgba(245,158,11,0.2)] transition-all duration-500 overflow-hidden";
+            ativarLaser('laranja');
+
+            updateInstructions("Mapeando Rosto", "Processando 3D...", "scan");
+            
+            // Simulação visual
+            await esperar(3000);
+            resetFaceMask();
+            updateInstructions("Mapeamento Completo!", "Perfil salvo com sucesso.", "sucesso");
+            exibirPopupResultado("Cadastro Efetuado", "O aluno foi sincronizado.", "sucesso");
+            
+            btnCadastrar.disabled = false;
+            alunoSelect.disabled = false;
+        });
+    </script>
+</body>
+</html>

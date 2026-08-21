@@ -514,6 +514,7 @@ def reconhecer_face_com_rgb(imagem_rgb):
     Com blindagem contra fotos deitadas enviadas pelo sensor de tablets!
     """
     # Tenta achar o rosto na imagem como ela chegou
+    imagem_rgb = np.ascontiguousarray(imagem_rgb, dtype=np.uint8)
     locais = face_recognition.face_locations(imagem_rgb)
 
     # 👇 BLINDAGEM LUKA: Se não achou, a foto do tablet pode estar deitada em 90 graus!

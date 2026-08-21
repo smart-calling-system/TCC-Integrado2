@@ -1,8 +1,18 @@
+// ==========================================
+// ⚙️ CONFIGURAÇÕES DA API (O QUARTEL GENERAL)
+// ==========================================
+const IP_SERVIDOR = '10.133.101.30'; // Mude AQUI no dia do TCC!
+const NODE_API = `http://${IP_SERVIDOR}:3000/api/v1`;
+const PYTHON_API = `http://${IP_SERVIDOR}:5000`;
+
+// Como trancamos a rota de alunos por causa da LGPD, coloque um Token JWT válido aqui
+const TOKEN = localStorage.getItem('token') || 'COLOQUE_SEU_TOKEN_GERADO_AQUI'; 
+
 const video = document.getElementById('webcam');
 const canvas = document.getElementById('canvas');
 const btnCapturar = document.getElementById('btnCapturar');
 const btnCadastrar = document.getElementById('btnCadastrar');
-const nomeAlunoInput = document.getElementById('nomeAluno');
+const alunoSelect = document.getElementById('alunoSelect');
 
 const tabPresenca = document.getElementById('tabPresenca');
 const tabCadastro = document.getElementById('tabCadastro');
@@ -24,13 +34,11 @@ const resultIcon = document.getElementById('resultIcon');
 
 navigator.mediaDevices.getUserMedia({ video: true })
     .then(stream => { video.srcObject = stream; })
-    .catch(err => { console.error(err); });
-
-nomeAlunoInput.addEventListener('input', () => { nomeAlunoInput.value = nomeAlunoInput.value.toUpperCase(); });
+    .catch(err => { console.error("Erro na webcam:", err); });
 
 function resetGeral() {
     btnCadastrar.disabled = false;
-    nomeAlunoInput.disabled = false;
+    alunoSelect.disabled = false;
     ocultarPopupResultado();
     resetFaceMask();
 }
@@ -50,9 +58,40 @@ tabCadastro.addEventListener('click', () => {
     tabPresenca.className = "flex-1 py-3 rounded-xl text-xs font-bold transition-all duration-300 text-slate-400 hover:text-slate-200 cursor-pointer";
     containerCadastro.classList.remove('hidden');
     containerPresenca.classList.add('hidden');
-    updateInstructions("Módulo de Cadastro", "Insira o nome do aluno para iniciar");
+    updateInstructions("Módulo de Cadastro", "Selecione o aluno na lista para iniciar");
+    
+    // 👇 Puxa a lista de alunos do Node.js quando clica na aba!
+    carregarAlunosDoBanco();
 });
 
+// ==========================================
+// 📡 COMUNICAÇÃO COM O NODE.JS (POSTGRES)
+// ==========================================
+async function carregarAlunosDoBanco() {
+    alunoSelect.innerHTML = '<option value="">CARREGANDO BANCO DE DADOS...</option>';
+    try {
+        const res = await fetch(`${NODE_API}/alunos`, {
+            headers: { 'Authorization': `Bearer ${TOKEN}` }
+        });
+        const json = await res.json();
+        alunoSelect.innerHTML = '<option value="">SELECIONE UM ALUNO</option>';
+        
+        if(json.data && json.data.dados) {
+            json.data.dados.forEach(aluno => {
+                const opt = document.createElement('option');
+                opt.value = aluno.id; // O UUID real do Postgres
+                opt.dataset.nome = aluno.nome; // O Nome pro Python
+                opt.textContent = aluno.nome;
+                alunoSelect.appendChild(opt);
+            });
+        }
+    } catch (e) {
+        alunoSelect.innerHTML = '<option value="">ERRO DE CONEXÃO COM O NODE</option>';
+        console.error(e);
+    }
+}
+
+// O resto das funções visuais do Pietro (updateInstructions, ativarLaser, resetFaceMask, exibirPopupResultado) continuam iguais!
 function updateInstructions(main, sub, status = "") {
     instructionText.textContent = main;
     subInstructionText.textContent = sub;
@@ -90,7 +129,6 @@ function exibirPopupResultado(titulo, msg, tipo) {
     resultMsg.textContent = msg;
     
     const iconeAlvo = document.getElementById('resultIcon');
-    
     if (tipo === 'sucesso') {
         resultCard.className = "mt-6 p-4 rounded-2xl border border-emerald-500/20 bg-emerald-950/20 text-emerald-400 backdrop-blur-xl transition-all duration-500";
         if (resultIconBox) resultIconBox.className = "w-12 h-12 rounded-xl flex items-center justify-center text-xl shadow-inner bg-emerald-500/10 text-emerald-400";
@@ -119,7 +157,9 @@ function dispararFlash() {
 
 const esperar = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
-// CHAMADA
+// ==========================================
+// 🚀 BOTÃO DE CHAMADA (BATE NO PYTHON)
+// ==========================================
 btnCapturar.addEventListener('click', async () => {
     resetFaceMask();
     ativarLaser('indigo');
@@ -127,80 +167,24 @@ btnCapturar.addEventListener('click', async () => {
 
     updateInstructions("Reconhecendo...", "Aguarde o processamento da biometria", "scan");
 
-    if (resultIcon) {
-        resultIcon.className = "fa-solid fa-circle-notch animate-spin";
-    }
-    if (resultIconBox) {
-        resultIconBox.className = "w-12 h-12 rounded-xl flex items-center justify-center text-xl shadow-inner text-indigo-400";
-    }
-
     try {
-        const respostaHttp = await fetch('/reconhecer', {
+        // 👇 Bate direto na API do Python (Porta 5000)
+        const respostaHttp = await fetch(`${PYTHON_API}/reconhecer`, {
             method: 'POST',
             body: obterFormDataParaChamada()
         });
 
-        let data;
-        try {
-            data = await respostaHttp.json();
-        } catch (_) {
-            throw new Error(`A API respondeu em formato inválido (HTTP ${respostaHttp.status}).`);
-        }
+        const data = await respostaHttp.json();
 
-        // Rosto não reconhecido: não é erro de conexão, apenas tentativa sem identificação.
         if (data.status === 'sucesso' && data.reconhecido === false) {
             updateInstructions("Não Identificado", "Tente posicionar o rosto novamente", "erro");
-            exibirPopupResultado("Rosto não reconhecido", data.mensagem || "Não foi possível identificar o aluno.", "erro");
-            return;
-        }
-
-        // O Python reconheceu o aluno, mas o Node não confirmou o registro.
-        if (data.status === 'erro') {
-            const reconheceu = data.reconhecido === true;
-            updateInstructions(
-                reconheceu ? "Identidade Confirmada" : "Erro no Reconhecimento",
-                reconheceu ? "Falha ao registrar no sistema escolar" : "Não foi possível concluir a chamada",
-                "erro"
-            );
-            exibirPopupResultado(
-                reconheceu ? "Presença não registrada" : "Erro",
-                data.mensagem || "Não foi possível concluir a operação.",
-                "erro"
-            );
+            exibirPopupResultado("Rosto não reconhecido", data.mensagem || "Não foi possível identificar.", "erro");
             return;
         }
 
         if (data.status === 'sucesso' && data.reconhecido === true) {
-            switch (data.evento) {
-                case 'ENTRADA_REGISTRADA':
-                    updateInstructions("Entrada Confirmada", "Presença registrada no banco", "sucesso");
-                    exibirPopupResultado("Presença Confirmada", `Bem-vindo, ${data.aluno}!`, "sucesso");
-                    break;
-
-                case 'SAIDA_REGISTRADA':
-                    updateInstructions("Saída Confirmada", "Registro atualizado no banco", "sucesso");
-                    exibirPopupResultado("Saída Confirmada", `Até mais, ${data.aluno}!`, "sucesso");
-                    break;
-
-                case 'SAIDA_ANTECIPADA_REGISTRADA':
-                    updateInstructions("Saída Antecipada", "Registro atualizado no banco", "sucesso");
-                    exibirPopupResultado("Saída Registrada", `${data.aluno}: saída antecipada registrada.`, "sucesso");
-                    break;
-
-                case 'IGNORADO':
-                    updateInstructions("Chamada já concluída", "Nenhum novo registro foi criado", "sucesso");
-                    exibirPopupResultado("Registro já concluído", data.mensagem || `${data.aluno} já concluiu o ciclo de hoje.`, "sucesso");
-                    break;
-
-                default:
-                    if (data.presenca_registrada) {
-                        updateInstructions("Registro Confirmado", "Backend confirmou a operação", "sucesso");
-                        exibirPopupResultado("Registro Confirmado", data.mensagem || `Aluno: ${data.aluno}`, "sucesso");
-                    } else {
-                        updateInstructions("Reconhecimento concluído", "Nenhum novo registro foi criado", "sucesso");
-                        exibirPopupResultado("Reconhecimento concluído", data.mensagem || `Aluno: ${data.aluno}`, "sucesso");
-                    }
-            }
+            updateInstructions("Identidade Confirmada", "Presença registrada", "sucesso");
+            exibirPopupResultado("Presença Confirmada", `Aluno: ${data.aluno}`, "sucesso");
             return;
         }
 
@@ -209,7 +193,7 @@ btnCapturar.addEventListener('click', async () => {
     } catch (error) {
         console.error(error);
         updateInstructions("Erro de Conexão", "Servidor indisponível", "erro");
-        exibirPopupResultado("Erro", error.message || "Não foi possível se comunicar com o sistema.", "erro");
+        exibirPopupResultado("Erro", error.message, "erro");
     } finally {
         btnCapturar.disabled = false;
     }
@@ -237,14 +221,22 @@ function dataURItoBlob(dataURI) {
     return new Blob([ab], {type: mimeString});
 }
 
-// CADASTRO AUTOMÁTICO 
+// ==========================================
+// 📸 BOTÃO DE CADASTRO 3D (PYTHON + POSTGRES)
+// ==========================================
 btnCadastrar.addEventListener('click', async () => {
-    let nomeOriginal = nomeAlunoInput.value.trim();
-    if (!nomeOriginal) { alert("Insira o nome completo."); return; }
-    let nomeLimpo = nomeOriginal.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-zA-Z0-9 ]/g, "").replace(/\s+/g, " ").trim();
+    if (!alunoSelect.value) { 
+        alert("Selecione um aluno da lista primeiro!"); 
+        return; 
+    }
+    
+    // Pega o UUID pro Node e o Nome pro Python!
+    const alunoId = alunoSelect.value;
+    const nomeOriginal = alunoSelect.options[alunoSelect.selectedIndex].dataset.nome;
+    let nomeLimpo = nomeOriginal.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-zA-Z0-9 ]/g, "").replace(/\s+/g, " ").trim().toUpperCase();
 
     btnCadastrar.disabled = true;
-    nomeAlunoInput.disabled = true;
+    alunoSelect.disabled = true;
     ocultarPopupResultado();
     resetFaceMask();
 
@@ -257,6 +249,8 @@ btnCadastrar.addEventListener('click', async () => {
     ];
 
     try {
+        let formDataDaUltimaFoto = null;
+
         for (let i = 0; i < etapas.length; i++) {
             const etapa = etapas[i];
             statusIcon.className = `fa-solid ${etapa.icone} text-4xl text-amber-400`;
@@ -268,55 +262,69 @@ btnCadastrar.addEventListener('click', async () => {
                 await esperar(1000);
             }
 
-            // Garante a troca síncrona do texto no milissegundo zero da terceira foto
             if (etapa.num === "3") {
-                updateInstructions("SALVANDO NO BANCO DE DADOS...", "Processando perfil biométrico...", "scan");
+                updateInstructions("SALVANDO NO BANCO DE DADOS...", "Avisando o servidor Node.js...", "scan");
             } else {
                 updateInstructions(etapa.texto, "Capturando...", "scan");
             }
 
             centerIcon.className = "absolute inset-0 flex items-center justify-center bg-slate-950/80 rounded-full opacity-0 scale-75 transition-all duration-75 pointer-events-none";
             await esperar(200);
-
             dispararFlash();
             
-            let resposta = await enviarFotoCadastro(nomeLimpo, etapa.num);
+            // 1. Manda a foto pro Python treinar a IA
+            const resultadoImg = obterFormDataParaCadastro(nomeLimpo, etapa.num);
+            let resposta = await fetch(`${PYTHON_API}/cadastrar`, { method: 'POST', body: resultadoImg.formDataParaPython }).then(r => r.json());
             
-            if (resposta.status === 'erro') {
-                throw new Error(resposta.mensagem);
+            if (resposta.status === 'erro') throw new Error(resposta.mensagem);
+
+            // Guarda a última foto gerada para mandar pro Node!
+            if(etapa.num === "3") {
+                formDataDaUltimaFoto = resultadoImg.formDataParaNode;
             }
         }
 
+        // 👇 2. O PULO DO GATO: As 3 fotos passaram no Python? Agora avisa o POSTGRES!
+        const resNode = await fetch(`${NODE_API}/alunos/${alunoId}/foto`, { 
+            method: 'POST', 
+            headers: { 'Authorization': `Bearer ${TOKEN}` },
+            body: formDataDaUltimaFoto 
+        });
+
+        if(!resNode.ok) throw new Error("O Python salvou, mas falhou ao gravar no Postgres.");
+
         resetFaceMask();
-        updateInstructions("Mapeamento Completo!", "Perfil biométrico salvo.", "sucesso");
-        exibirPopupResultado("Cadastro Efetuado", `O aluno "${nomeLimpo}" foi registrado com sucesso.`, "sucesso");
+        updateInstructions("Mapeamento Completo!", "Perfil salvo com sucesso no banco de dados.", "sucesso");
+        exibirPopupResultado("Cadastro Efetuado", `O aluno "${nomeOriginal}" foi sincronizado.`, "sucesso");
 
     } catch (error) {
         resetFaceMask();
-        updateInstructions("Cadastro Cancelado", "Posição incorreta detectada", "erro");
+        updateInstructions("Cadastro Cancelado", "Posição incorreta ou falha de rede", "erro");
         exibirPopupResultado("Erro no Scanner", error.message, "erro");
     } finally {
         btnCadastrar.disabled = false;
-        nomeAlunoInput.disabled = false;
-        nomeAlunoInput.value = "";
+        alunoSelect.disabled = false;
+        alunoSelect.value = "";
     }
 });
 
-function enviarFotoCadastro(nome, numero) {
+function obterFormDataParaCadastro(nome, numero) {
     const context = canvas.getContext('2d');
     canvas.width = video.videoWidth || 640;
     canvas.height = video.videoHeight || 480;
     context.drawImage(video, 0, 0, canvas.width, canvas.height);
     
-    const dataUrl = canvas.toDataURL('image/jpeg');
-    const blob = dataURItoBlob(dataUrl);
+    const blob = dataURItoBlob(canvas.toDataURL('image/jpeg'));
 
-    const formData = new FormData();
-    formData.append('nome', nome);
-    formData.append('numero_foto', numero);
-    formData.append('file', blob, `scan_${numero}.jpg`);
+    // Monta os dados para o Python (ele exige 'nome', 'numero_foto' e 'file')
+    const fdPython = new FormData();
+    fdPython.append('nome', nome);
+    fdPython.append('numero_foto', numero);
+    fdPython.append('file', blob, `scan_${numero}.jpg`);
 
-    return fetch('/cadastrar', { method: 'POST', body: formData })
-        .then(res => res.json())
-        .catch(() => { return { status: 'erro', mensagem: "Erro de conexão com o servidor." }; });
+    // Monta os dados para o Node.js (o Multer lá exige apenas o campo 'foto')
+    const fdNode = new FormData();
+    fdNode.append('foto', blob, 'foto_treinamento.jpg');
+
+    return { formDataParaPython: fdPython, formDataParaNode: fdNode };
 }
