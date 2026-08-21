@@ -19,10 +19,9 @@ class VincularController extends ChangeNotifier {
 
   // 👇 ATENÇÃO CHEF: Coloque o IP da máquina e a rota do Node.js que lista os alunos!
 // 👇 IP NOVO DO SEU COMPUTADOR NO SENAI!
-  final String _nodeApiUrl = 'http://10.133.101.13:3000/api/v1/alunos'; 
+  final String _nodeApiUrl = 'http://10.133.101.30:3000/api/v1/alunos'; 
   
-  // IP do servidor Python para mandar a foto
-  final String _pythonApiUrl = 'http://10.133.101.13:5000/cadastrar';
+  final String _pythonApiUrl = 'http://10.133.101.30:5000/cadastrar';
 
   VincularController() {
     // Assim que a tela abre, ele já puxa os alunos do banco!

@@ -119,6 +119,7 @@ class _VincularAlunoView extends StatelessWidget {
                       const SizedBox(height: 24),
 
                       // Botão de Enviar
+                      // Botão de Enviar
                       AppButton(
                         label: 'Cadastrar no Banco Facial',
                         icon: Icons.save_alt_rounded,
@@ -126,7 +127,14 @@ class _VincularAlunoView extends StatelessWidget {
                         onPressed: controller.alunoSelecionado == null || controller.carregandoAlunos
                           ? null 
                           : () async {
-                              final sucesso = await controller.vincularRostoNoPython(foto);
+                              // 👇 1. Achamos o ID do aluno que foi selecionado no Dropdown
+                              final alunoId = controller.alunos.firstWhere(
+                                (aluno) => aluno['nome'] == controller.alunoSelecionado
+                              )['id'] as String;
+
+                              // 👇 2. Mandamos a foto E o ID para a função! (Isso resolve o erro)
+                              final sucesso = await controller.vincularRostoNoPython(foto, alunoId);
+                              
                               if (context.mounted) {
                                 if (sucesso) {
                                   ScaffoldMessenger.of(context).showSnackBar(

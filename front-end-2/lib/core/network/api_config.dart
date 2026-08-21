@@ -8,7 +8,9 @@ class ApiConfig {
   );
 
   // Base URL limpa (sem o prefixo de versão no final)
-  static const String baseUrl = 'http://10.133.101.13:3000';
+
+
+  static const String baseUrl = 'http://10.133.101.30:3000';
 
   // Prefixo oficial da API
   static const String apiPrefix = '/api/v1';
