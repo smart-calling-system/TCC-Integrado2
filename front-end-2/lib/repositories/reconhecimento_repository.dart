@@ -1,43 +1,23 @@
 import 'dart:io';
-import '../data/local/sync_queue_data_source.dart';
-import '../data/local/sync_queue_factory.dart';
 import '../data/api/api_recognition_data_source.dart';
 import '../models/aluno.dart';
-import '../models/sync_queue_item.dart';
 
 class ReconhecimentoRepository {
   ReconhecimentoRepository({
     ApiRecognitionDataSource? recognitionDataSource,
-    SyncQueueDataSource? syncQueueDataSource,
   }) : _recognitionDataSource =
-           recognitionDataSource ?? ApiRecognitionDataSource(),
-       _syncQueueDataSource =
-           syncQueueDataSource ?? createDefaultSyncQueueDataSource();
+            recognitionDataSource ?? ApiRecognitionDataSource();
 
   final ApiRecognitionDataSource _recognitionDataSource;
-  final SyncQueueDataSource _syncQueueDataSource;
 
-  // 👇 Exige a foto e repassa para o DataSource
+  // 👇 O Repositório agora é direto e reto!
   Future<Aluno> reconhecerAluno(File foto) async {
+    
+    // 1. Chama a API (que bate no Python, que avisa o Node, que salva no Postgres)
     final aluno = await _recognitionDataSource.reconhecerAluno(foto);
     
-    final now = DateTime.now();
-    await _syncQueueDataSource.enqueue(
-      SyncQueueItem(
-        localId: 'presence-${now.microsecondsSinceEpoch}-${aluno.id}',
-        operation: 'registrar_presenca_facial',
-        createdAt: now,
-        payload: {
-          'alunoId': aluno.id,
-          'turmaNome': aluno.turma,
-          'status': 'PRESENTE',
-          'origem': 'FACIAL',
-          'dataHoraLocal': now.toIso8601String(),
-          'observacao':
-              'Registro local criado offline via app. turmaId será resolvido na sincronização.',
-        },
-      ),
-    );
+    // 2. Acabou! Não enfileiramos mais offline. 
+    // Se chegou até aqui sem dar erro, a presença já está oficializada no banco.
     return aluno;
   }
 }

@@ -4,6 +4,7 @@ const { promisify } = require('util');
 const prisma = require('../../database/client');
 const authConfig = require('../../config/auth.config');
 const AppError = require('../../utils/AppError');
+const emailService = require('../../utils/email'); // Ajuste o caminho se necessário
 
 class AuthService {
   // Função auxiliar interna para não repetir código
@@ -95,9 +96,28 @@ class AuthService {
 
   // 👇 1. Simulação do envio de e-mail (Salva horas de TCC)
   async recuperarSenha(email) {
-    console.log(`[SISTEMA] Simulação: E-mail de redefinição solicitado para: ${email}`);
-    return true; 
-  }
+  // 1. Busque o usuário no banco (valide se ele existe)
+  const usuario = await prisma.usuario.findUnique({ where: { email } });
+  if (!usuario) return true; // Retorna true para evitar enumeração de e-mails (Segurança)
+
+  // 2. Gere o token/senha provisória (exemplo simplificado)
+  const tokenReset = Math.floor(100000 + Math.random() * 900000).toString(); 
+
+  // TODO: Salvar esse tokenReset no banco atrelado ao usuário com data de expiração
+
+  // 3. Dispare o e-mail DE VERDADE
+  await emailService.sendEmail({
+    to: usuario.email,
+    subject: 'Recuperação de Senha - Sistema de Presença Facial',
+    html: `
+      <h2>Recuperação de Senha</h2>
+      <p>Você solicitou a recuperação de senha. Seu código de validação é: <b>${tokenReset}</b></p>
+      <p>Se não foi você, ignore este e-mail.</p>
+    `
+  });
+
+  return true;
+}
 
   // 👇 2. Troca de senha real com criptografia
   async trocarSenha(usuarioId, senhaAtual, novaSenha) {

@@ -110,7 +110,7 @@ class IaService {
     ]);
 
     return {
-      aluno: aluno.nome,
+      aluno: aluno,
       status: 'ENTRADA_REGISTRADA',
       presenca: novaPresenca
     };

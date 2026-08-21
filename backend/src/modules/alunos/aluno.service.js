@@ -30,46 +30,48 @@ class AlunoService {
   }
 
   async uploadFotoTreinamento(alunoId, file) {
-    const aluno = await this.buscarAlunoPorId(alunoId);
-
-    // 1. Monta o pacote com a imagem para enviar para o Python
-    const form = new FormData();
-    form.append('file', file.buffer, {
-      filename: file.originalname,
-      contentType: file.mimetype,
+    // 1. Buscar o aluno no banco para pegar o "nome" que o Python exige
+    const aluno = await prisma.aluno.findUnique({
+      where: { id: alunoId }
     });
-    // Mandamos o ID do aluno junto para o Python popular o json dele automaticamente!
-    form.append('aluno_id', aluno.id); 
+
+    if (!aluno) {
+      throw new AppError('Aluno não encontrado no banco de dados.', 404);
+    }
+
+    // 2. Montar o payload EXATAMENTE como o contrato do FastAPI (Python) exige
+    const form = new FormData();
+    form.append('nome', aluno.nome);
+    form.append('numero_foto', '1'); // Parâmetro obrigatório do Python
+    
+    // Se o multer estiver salvando no disco, lemos o arquivo físico:
+    form.append('file', fs.createReadStream(file.path), file.originalname);
 
     try {
-      // 2. Dispara a foto para a API de IA do Pietro
-      const response = await axios.post(
-        `${process.env.PYTHON_API_URL}/cadastrar`, 
-        form, 
-        {
-          headers: {
-            ...form.getHeaders(),
-            'x-api-key': process.env.IA_API_KEY
-          },
-          timeout: 15000 // 15 segundos porque processamento de imagem demora mais
-        }
-      );
-
-      // 3. Se a IA aceitou a foto (boa nitidez, etc), atualizamos o banco do Node
-      const alunoAtualizado = await prisma.aluno.update({
-        where: { id: aluno.id },
-        data: { fotoTreinamento: file.originalname }
+      // 3. Disparar a requisição pro Python enviando os 3 campos obrigatórios
+      const pythonUrl = process.env.PYTHON_API_URL || 'http://10.133.101.30:5000';
+      const pythonResponse = await axios.post(`${pythonUrl}/cadastrar`, form, {
+        headers: {
+          ...form.getHeaders(),
+        },
       });
 
-      return {
-        aluno: alunoAtualizado,
-        iaResultado: response.data // Retorna a confirmação da IA
-      };
+      // 4. Se o Python aceitou (200 OK), nós vinculamos a foto no Postgres!
+      if (pythonResponse.status === 200) {
+        const alunoAtualizado = await prisma.aluno.update({
+          where: { id: alunoId },
+          data: { fotoTreinamento: file.filename } // Salva o nome da foto no banco!
+        });
 
+        // (Opcional) Podemos apagar o arquivo da pasta temporária do Node se o Python já guardou o dele
+        // fs.unlinkSync(file.path); 
+
+        return alunoAtualizado;
+      }
     } catch (error) {
-      // Se a IA rejeitar a foto (borrada, rosto duplo, etc)
-      const erroIa = error.response?.data?.detail || error.message;
-      throw new AppError(`A IA rejeitou o cadastro da foto: ${erroIa}`, 422);
+      // Se o Python devolver 422 ou qualquer erro, o Node avisa o Flutter
+      console.error('Erro na IA Python:', error.response?.data || error.message);
+      throw new AppError('Falha ao registrar rosto no motor de Inteligência Artificial.', 500);
     }
   }
 

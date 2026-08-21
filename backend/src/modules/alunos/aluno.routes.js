@@ -9,16 +9,14 @@ const upload = require('../../middlewares/upload');
 
 const router = Router();
 
-// 👇 ROTA LIVRE PARA O FLUTTER: Colocamos ACIMA do cadeado e tiramos o authorize!
-router.get('/', alunoController.getAll);
-
-// =========================================================================
-// 🔒 DAQUI PRA BAIXO O CADEADO FECHA! TODAS AS ROTAS EXIGEM LOGIN (TOKEN)
-// =========================================================================
+// 👇 CADEADO GLOBAL ATIVADO: Tudo abaixo daqui precisa de Token!
 router.use(authenticate);
 
-// Coloque ANTES do router.get('/:id' ...)
-router.get('/check-ra/:ra', authenticate, alunoController.checkRa.bind(alunoController));
+// 👇 CORREÇÃO 1 (LGPD): A Rota que antes era livre agora exige Autenticação e Cargo!
+router.get('/', authorize([ROLES.ADMIN, ROLES.SECRETARIA, ROLES.PROFESSOR]), alunoController.getAll);
+
+// Rota de checagem
+router.get('/check-ra/:ra', alunoController.checkRa.bind(alunoController));
 
 // 👇 ROTAS BLINDADAS: Apenas Admin, Secretaria e Professor podem ver dados específicos e alterar
 router.get('/:id', authorize([ROLES.ADMIN, ROLES.SECRETARIA, ROLES.PROFESSOR]), alunoController.getById);

@@ -17,6 +17,13 @@ router.get('/hoje', presencaController.getHoje);
 router.get('/aluno/:id', presencaController.getByAluno);
 router.get('/turma/:id', presencaController.getByTurma);
 
+// 👇 O BUG ESTAVA AQUI! Mudamos de '.criarJustificativa' para '.create'!
+router.post(
+  '/:id/justificar', 
+  authorize([ROLES.ADMIN, ROLES.SECRETARIA, ROLES.PROFESSOR]), 
+  justificativaController.create // <--- AGORA O NOME BATE COM O CONTROLLER!
+);
+
 // ROTA MANUAL (Com validador Zod injetado)
 router.post('/', 
   authorize([ROLES.ADMIN, ROLES.SECRETARIA, ROLES.PROFESSOR]), 
@@ -30,5 +37,4 @@ router.post('/',
 router.post('/batch', authorize([ROLES.PROFESSOR, ROLES.ADMIN]), validate(presencaValidator.batchSchema), presencaController.sincronizarBatch);
 router.patch('/:id/saida', authorize([ROLES.ADMIN, ROLES.SECRETARIA]), presencaController.registrarSaida);
 
-
-module.exports = router;
+module.exports = router;1

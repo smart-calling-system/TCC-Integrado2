@@ -2,6 +2,10 @@ import 'dart:io';
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
+import 'package:shared_preferences/shared_preferences.dart';
+
+// 👇 1. Importando o nosso Quartel General de IPs! 
+import '../../core/network/api_config.dart';
 
 class VincularController extends ChangeNotifier {
   bool _processando = false;
@@ -17,12 +21,6 @@ class VincularController extends ChangeNotifier {
   String? _alunoSelecionado;
   String? get alunoSelecionado => _alunoSelecionado;
 
-  // 👇 ATENÇÃO CHEF: Coloque o IP da máquina e a rota do Node.js que lista os alunos!
-// 👇 IP NOVO DO SEU COMPUTADOR NO SENAI!
-  final String _nodeApiUrl = 'http://10.133.101.30:3000/api/v1/alunos'; 
-  
-  final String _pythonApiUrl = 'http://10.133.101.30:5000/cadastrar';
-
   VincularController() {
     // Assim que a tela abre, ele já puxa os alunos do banco!
     carregarAlunos();
@@ -33,13 +31,22 @@ class VincularController extends ChangeNotifier {
     notifyListeners();
 
     try {
-      final response = await http.get(Uri.parse(_nodeApiUrl));
+      // 👇 2. O FLUTTER PEGA O TOKEN DE LOGIN SALVO
+      final prefs = await SharedPreferences.getInstance();
+      final token = prefs.getString('token') ?? '';
+
+      // 👇 3. FAZ A REQUISIÇÃO COM O IP CENTRALIZADO E O TOKEN NA PORTA!
+      final response = await http.get(
+        ApiConfig.uri('/alunos'),
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Content-Type': 'application/json',
+        },
+      );
 
       if (response.statusCode == 200) {
-        // 👇 Agora o Flutter entende que é um objeto complexo (Map) e não uma lista direta
         final Map<String, dynamic> jsonResponse = jsonDecode(response.body);
         
-        // 👇 Nós navegamos pelas chaves do seu JSON: "data" -> "dados"
         if (jsonResponse['status'] == 'success' && 
             jsonResponse['data'] != null && 
             jsonResponse['data']['dados'] != null) {
@@ -48,7 +55,7 @@ class VincularController extends ChangeNotifier {
           
           _alunos = listaAlunos.map((e) => {
             'id': e['id'].toString(),
-            'nome': e['nome'].toString(), // O Python usa esse nome para criar a foto
+            'nome': e['nome'].toString(), 
           }).toList();
         } else {
           _alunos = [];
@@ -76,35 +83,30 @@ class VincularController extends ChangeNotifier {
     notifyListeners();
 
     try {
-      // 1️⃣ PASSO: Manda a foto para o Python processar a IA e salvar na pasta local
-      final uriPython = Uri.parse(_pythonApiUrl);
-      var requestPython = http.MultipartRequest('POST', uriPython);
+      // 👇 4. PEGA O TOKEN NOVAMENTE PARA AUTORIZAR O UPLOAD
+      final prefs = await SharedPreferences.getInstance();
+      final token = prefs.getString('token') ?? '';
+
+      // Arquitetura limpa: O Flutter manda TUDO SÓ PARA O NODE!
+      final uriNode = ApiConfig.uri('/alunos/$alunoId/foto');
       
-      requestPython.fields['nome'] = _alunoSelecionado!;
-      requestPython.fields['numero_foto'] = '1';
-      requestPython.files.add(await http.MultipartFile.fromPath('file', foto.path));
-
-      var responsePython = await requestPython.send();
-
-      if (responsePython.statusCode != 200) {
-        _processando = false;
-        notifyListeners();
-        return false;
-      }
-
-      // 2️⃣ PASSO: Manda a foto para o Node.js salvar o caminho na tabela do Postgres (`foto_treinamento`)
-      // Usamos a mesma URL base do Node, mas batendo na rota do controller que você mandou!
-      final uriNode = Uri.parse('http://10.133.101.13:3000/api/v1/alunos/$alunoId/foto');
       var requestNode = http.MultipartRequest('POST', uriNode);
       
-      requestNode.files.add(await http.MultipartFile.fromPath('foto', foto.path)); // Nome do campo esperado pelo upload.single('foto')
+      // 👇 5. COLOCA O TOKEN NO HEADER DO MULTIPART
+      requestNode.headers.addAll({
+        'Authorization': 'Bearer $token',
+      });
+
+      // Anexa a foto no campo 'foto' que o Node.js (multer) está esperando
+      requestNode.files.add(await http.MultipartFile.fromPath('foto', foto.path)); 
 
       var responseNode = await requestNode.send();
 
       _processando = false;
       notifyListeners();
 
-      return responseNode.statusCode == 200;
+      // Se o Node der 200 (OK) ou 201 (Created), deu tudo certo!
+      return responseNode.statusCode == 200 || responseNode.statusCode == 201;
     } catch (e) {
       debugPrint('Erro ao vincular rosto e salvar no banco: $e');
       _processando = false;

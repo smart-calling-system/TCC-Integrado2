@@ -12,6 +12,7 @@ import json
 import logging
 import requests
 import io
+
 from PIL import Image, ImageOps  # 👇 A BLINDAGEM DO LUKA AQUI
 from uuid import UUID
 from dotenv import load_dotenv
@@ -275,13 +276,30 @@ async def cadastrar_aluno(
 
     try:
         conteudo = await file.read()
-        nparr = np.frombuffer(conteudo, np.uint8)
-        imagem_bgr = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+        
+        # 🔥 INÍCIO DA BLINDAGEM MÁXIMA DO LUKA 🔥
+        try:
+            # 1. Lê os bytes via Pillow e corrige a rotação fantasma (EXIF) de celulares/tablets
+            imagem_pil = Image.open(io.BytesIO(conteudo))
+            imagem_pil = ImageOps.exif_transpose(imagem_pil)
+            
+            # 2. Força o formato RGB e garante que o bloco de memória seja contíguo (Isso evita o crash fatal do dlib)
+            imagem_rgb_pil = imagem_pil.convert("RGB")
+            imagem_array = np.array(imagem_rgb_pil)
+            imagem_array = np.ascontiguousarray(imagem_array, dtype=np.uint8)
+            
+            # 3. Volta a imagem para o padrão BGR que o OpenCV ama e usa pro resto da lógica
+            imagem_bgr = cv2.cvtColor(imagem_array, cv2.COLOR_RGB2BGR)
+        except Exception as e:
+            logger.warning(f"Erro na decodificação blindada: {e}")
+            imagem_bgr = None
+        # 🔥 FIM DA BLINDAGEM 🔥
 
         if imagem_bgr is None:
             limpar_fotos_parciais(nome_limpo)
             return {"status": "erro", "mensagem": "Imagem inválida ou corrompida."}
 
+        # O OpenCV (cv2) checa a nitidez usando a imagem BGR perfeitamente
         if not checar_nitidez(imagem_bgr):
             limpar_fotos_parciais(nome_limpo)
             return {
@@ -289,6 +307,7 @@ async def cadastrar_aluno(
                 "mensagem": "Imagem muito borrada. Fique parado e tente novamente."
             }
 
+        # Converte pro face_recognition achar os rostos (ele exige RGB)
         imagem_rgb = cv2.cvtColor(imagem_bgr, cv2.COLOR_BGR2RGB)
         locais = face_recognition.face_locations(imagem_rgb)
 
@@ -327,6 +346,7 @@ async def cadastrar_aluno(
                 limpar_fotos_parciais(nome_limpo)
                 return {"status": "erro", "mensagem": "Gire a cabeça um pouco para a DIREITA."}
 
+        # Se passou em tudo, salva a imagem (agora endireitada e limpa) no disco
         nome_arquivo = f"{nome_limpo}_{numero_foto}.jpg"
         caminho_destino = os.path.join(PASTA_BANCO, nome_arquivo)
 
@@ -346,7 +366,6 @@ async def cadastrar_aluno(
         logger.exception("Erro durante cadastro facial: %s", erro)
         limpar_fotos_parciais(nome_limpo)
         return {"status": "erro", "mensagem": f"Erro no servidor: {erro}"}
-
 # ============================================================
 # RECONHECIMENTO FACIAL
 # ============================================================
